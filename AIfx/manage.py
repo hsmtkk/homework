@@ -3,9 +3,6 @@
 import os
 import sys
 
-import set
-from oanda.oanda import APIClient
-
 
 def main():
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')

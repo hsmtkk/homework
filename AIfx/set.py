@@ -17,3 +17,7 @@ use_percent = float(ini['trading']['use_percent'])
 past_period = int(ini['trading']['past_period'])
 stop_limit_percent = float(ini['trading']['stop_limit_percent'])
 num_ranking = int(ini['trading']['num_ranking'])
+
+db_name = ini['db']['name']
+db_user = ini['db']['user']
+db_pass = ini['db']['password']

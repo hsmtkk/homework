@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 
 import os
 
+import psycopg2
+
+import set
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -77,11 +80,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'ai_fx',
-        'USER': 'ken',
-        'PASSWORD': 'ken',
-        'HOST': '',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': set.db_name,
+        'USER': set.db_user,
+        'PASSWORD': set.db_pass,
+        'HOST': 'localhost',
         'PORT': '',
     }
 }

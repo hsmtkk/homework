@@ -2,45 +2,36 @@ from django.db import models
 
 
 class UsdJpy1M(models.Model):
-    time = models.DateTimeField(verbose_name='time', primary_key=True, null=False, auto_now_add=True)
-    open = models.FloatField(verbose_name='open')
-    close = models.FloatField(verbose_name='close')
-    high = models.FloatField(verbose_name='high')
-    low = models.FloatField(verbose_name='low')
-    volume = models.IntegerField(verbose_name='volume')
-
-    class Meta:
-        verbose_name_plural = 'UsdJpy1M'
+    time = models.DateTimeField('time', primary_key=True, null=False)
+    open = models.FloatField('open')
+    close = models.FloatField('close')
+    high = models.FloatField('high')
+    low = models.FloatField('low')
+    volume = models.IntegerField('volume')
 
     def __str__(self):
-        return self.created_at
+        return str(self.time)
 
 
 class UsdJpy5M(models.Model):
-    time = models.DateTimeField(verbose_name='time', primary_key=True, null=False, auto_now_add=True)
-    open = models.FloatField(verbose_name='open')
-    close = models.FloatField(verbose_name='close')
-    high = models.FloatField(verbose_name='high')
-    low = models.FloatField(verbose_name='low')
-    volume = models.IntegerField(verbose_name='volume')
-
-    class Meta:
-        verbose_name_plural = 'UsdJpy5M'
+    time = models.DateTimeField('time', primary_key=True, null=False)
+    open = models.FloatField('open')
+    close = models.FloatField('close')
+    high = models.FloatField('high')
+    low = models.FloatField('low')
+    volume = models.IntegerField('volume')
 
     def __str__(self):
-        return self.created_at
+        return str(self.time)
 
 
 class UsdJpy15M(models.Model):
-    time = models.DateTimeField(verbose_name='time', primary_key=True, null=False, auto_now_add=True)
-    open = models.FloatField(verbose_name='open')
-    close = models.FloatField(verbose_name='close')
-    high = models.FloatField(verbose_name='high')
-    low = models.FloatField(verbose_name='low')
-    volume = models.IntegerField(verbose_name='volume')
-
-    class Meta:
-        verbose_name_plural = 'UsdJpy15M'
+    time = models.DateTimeField('time', primary_key=True, null=False)
+    open = models.FloatField('open')
+    close = models.FloatField('close')
+    high = models.FloatField('high')
+    low = models.FloatField('low')
+    volume = models.IntegerField('volume')
 
     def __str__(self):
-        return self.created_at
+        return str(self.time)
