@@ -4,5 +4,5 @@ from . import views
 app_name = 'aifx'
 
 urlpatterns = [
-    path('', views.IndexView.as_view(), name='chart')
+    path('', views.candle, name='candle'),
 ]

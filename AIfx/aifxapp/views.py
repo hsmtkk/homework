@@ -1,16 +1,20 @@
-from datetime import datetime
+import logging
 
-from django.views import generic
 from .models import UsdJpy1M, UsdJpy5M, UsdJpy15M
+from django.shortcuts import render
+import json
+from django.http import HttpResponse
+from django.http.response import JsonResponse
 
 import constants
 import set
-from oanda.oanda import Ticker
-# Create your views here.
+from oanda.oanda import APIClient
+
+api = APIClient(set.access_token, set.account_id)
+logger = logging.getLogger(__name__)
 
 
-class IndexView(generic.TemplateView):
-    template_name = 'chart.html'
+"""insert db"""
 
 
 def factory_candle_class(product_code, duration):
@@ -26,11 +30,13 @@ def factory_candle_class(product_code, duration):
 def create_candle_with_duration(product_code, duration, ticker):
     cls = factory_candle_class(product_code, duration)
     ticker_time = ticker.truncate_date_time(duration)
-    current_candle = cls.objects.get(ticker_time)
     price = ticker.mid_price
+    try:
+        current_candle = cls.objects.get(time=ticker_time)
 
-    if current_candle is None:
-        cls.objects.create(ticker_time, price, price, price, price, ticker.volume).save()
+    except cls.DoesNotExist:
+        cls.objects.create(time=ticker_time, open=price, close=price,
+                           high=price, low=price, volume=ticker.volume)
         return True
 
     if current_candle.high <= price:
@@ -44,10 +50,87 @@ def create_candle_with_duration(product_code, duration, ticker):
     return False
 
 
-now1 = datetime.timestamp(datetime(2020, 1, 1, 1, 0, 0))
-now2 = datetime.timestamp(datetime(2020, 1, 1, 1, 0, 1))
-now3 = datetime.timestamp(datetime(2020, 1, 1, 1, 0, 2))
-now4 = datetime.timestamp(datetime(2020, 1, 1, 1, 1, 0))
+"""real time ticker"""
 
-ticker = Ticker(set.product_code, now1, 100, 100, 1)
-create_candle_with_duration(set.product_code, '1m', ticker)
+
+class StreamData(object):
+
+    def stream_data(self):
+        api.get_realtime_ticker(callback=self.trade)
+
+    def trade(self, ticker):
+        logger.info(f'trade ticker:{ticker.__dict__}')
+        for duration in constants.DURATIONS:
+            created = create_candle_with_duration(ticker.product_code, duration, ticker)
+            print(created)
+
+
+stream = StreamData()
+
+
+class DataFrameCandle(object):
+
+    def __init__(self, product_code=set.product_code, duration=set.trade_duration):
+        self.product_code = product_code
+        self.duration = duration
+        self.candle_cls = factory_candle_class(self.product_code, self.duration)
+        self.candles = []
+
+    def set_all_candles(self, limit=1000):
+        try:
+            self.candles = self.candle_cls.objects.order_by('time').reverse()[:limit]
+        except self.candle_cls.DoesNotExist:
+            return None
+        return self.candles
+
+    @property
+    def value(self):
+        return {
+            'product_code': self.product_code,
+            'duration': self.duration,
+            'candles': [c.value for c in self.candles],
+        }
+
+
+""" main """
+
+
+def index(request):
+    df = DataFrameCandle(set.product_code, set.trade_duration)
+    df.set_all_candles(set.past_period)
+    context = {
+        'candles': df.value['candles'],
+    }
+    return render(request, 'chart.html', context)
+
+
+def candle(request):
+    if request.method == 'GET':
+        product_code = request.GET.get('product_code')
+        print(request.GET)
+        if not product_code:
+            return JsonResponse({'error': 'No product_code params'})
+
+        limit_str = request.GET.get('limit')
+        limit = 1000
+        if limit_str:
+            limit = int(limit_str)
+
+        if limit < 0 or limit > 1000:
+            limit = 1000
+
+        duration = request.GET.get('duration')
+        if not duration:
+            duration = constants.DURATION_1M
+
+        duration_time = constants.TRADE_MAP[duration]['duration']
+        df = DataFrameCandle(product_code, duration_time)
+        df.set_all_candles(limit)
+        return JsonResponse({
+            'product_code': df.value['product_code'],
+            'duration': df.value['duration'],
+            'candles': df.value['candles'],
+        })
+
+
+""" threading """

@@ -9,7 +9,6 @@ ini.read('set.ini')
 account_id = ini['oanda']['account_id']
 access_token = ini['oanda']['access_token']
 product_code = ini['oanda']['product_code']
-product_code2 = ini['oanda']['product_code2']
 
 trade_duration = ini['trading']['trade_duration'].lower()
 back_test = str_bool(ini['trading']['back_test'])

@@ -12,6 +12,17 @@ class UsdJpy1M(models.Model):
     def __str__(self):
         return str(self.time)
 
+    @property
+    def value(self):
+        return {
+            'time': self.time,
+            'open': self.open,
+            'close': self.close,
+            'high': self.high,
+            'low': self.low,
+            'volume': self.volume,
+        }
+
 
 class UsdJpy5M(models.Model):
     time = models.DateTimeField('time', primary_key=True, null=False)
@@ -24,6 +35,17 @@ class UsdJpy5M(models.Model):
     def __str__(self):
         return str(self.time)
 
+    @property
+    def value(self):
+        return {
+            'time': self.time,
+            'open': self.open,
+            'close': self.close,
+            'high': self.high,
+            'low': self.low,
+            'volume': self.volume,
+        }
+
 
 class UsdJpy15M(models.Model):
     time = models.DateTimeField('time', primary_key=True, null=False)
@@ -35,3 +57,14 @@ class UsdJpy15M(models.Model):
 
     def __str__(self):
         return str(self.time)
+
+    @property
+    def value(self):
+        return {
+            'time': self.time,
+            'open': self.open,
+            'close': self.close,
+            'high': self.high,
+            'low': self.low,
+            'volume': self.volume,
+        }
