@@ -1,4 +1,5 @@
 import logging
+from threading import Thread
 
 from .models import UsdJpy1M, UsdJpy5M, UsdJpy15M
 from django.shortcuts import render

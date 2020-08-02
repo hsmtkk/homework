@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <script type="text/javascript">
+            function send(){
+                $.ajax(
+                    {
+                        type: "GET",
+                        url: "",
+                        data: {
+                            product_code: config.candlestick.product_code,
+                            limit: config.candlestick.limit,
+                            duration: config.candlestick.duration,
+                        },
+                        success: function(result){
+                            console.log(result);
+                            var candles = result["candles"];
+                            $("#dashbord").append(candles[0].open + "<br>")
+                        },
+                    }
+                );
+            };
+            setInterval(send, 1000);
+            window.onload = function(){
+                send();
+            };
+        </script>
+    </head>
+    <body>
+        <div id="dashbord"></div>
+   </body>
+</html>
