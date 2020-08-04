@@ -12,8 +12,6 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 
 import os
 
-import psycopg2
-
 import set
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -80,12 +78,10 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': set.db_name,
         'USER': set.db_user,
         'PASSWORD': set.db_pass,
-        'HOST': 'localhost',
-        'PORT': '',
     }
 }
 

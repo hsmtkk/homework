@@ -147,9 +147,8 @@ class APIClient(object):
     def get_realtime_ticker(self, callback):
         r = PricingStream(accountID=self.account_id, params={
             'instruments': set.product_code,
-        })
+            })
         try:
-            # ジェネレーター
             for res in self.client.request(r):
                 if res['type'] == 'PRICE':
                     timestamp = datetime.timestamp(

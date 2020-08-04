@@ -97,9 +97,9 @@
             $.ajax(
                 {
                     type: "GET",
-                    url: "",
+                    url: "/",
                     data: {
-                        product_code: "USD_JPY",
+                        product_code: config.candlestick.product_code,
                         limit: config.candlestick.limit,
                         duration: config.candlestick.duration,
                     },
@@ -136,9 +136,9 @@
             send();
         }
 
-        setInterval(send, 1000)
+        setInterval(send, 1000);
         window.onload = function () {
-            send()
+            send();
 
             $('#dashboard_div').mouseenter(function() {
                 config.api.enable = false;
