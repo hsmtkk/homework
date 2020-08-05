@@ -3,7 +3,22 @@ type: docker
 name: default
 
 steps:
-  - name: example
-    image: alpine:3.12.0
+  - name: lint_dockerfile
+    image: hadolint/hadolint:v1.18.0
     commands:
-      - echo success
+      - hadolint docker/Dockerfile
+
+  - name: lint_docker_compose_yml
+    image: sdesbure/yamllint
+    commands:
+      - yamllint -d relaxed docker/docker-compose.yml
+
+  - name: docker
+    image: plugins/docker
+    settings:
+      repo: hsmtkk/homework
+      username: hsmtkk
+      password:
+        from_secret: docker_hub_token
+      dockerfile: docker/Dockerfile
+      tags: django

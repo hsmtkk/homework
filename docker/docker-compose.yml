@@ -12,4 +12,3 @@ services:
       MYSQL_DATABASE: aifx
       MYSQL_USER: ken
       MYSQL_PASSWORD: ken
-
