@@ -19,5 +19,5 @@ steps:
       repo: hsmtkk/homework
       username: hsmtkk
       password:
-        from_secret: git_hub_token
+        from_secret: docker_hub_token
       tags: django
