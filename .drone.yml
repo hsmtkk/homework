@@ -20,4 +20,5 @@ steps:
       username: hsmtkk
       password:
         from_secret: docker_hub_token
+      dockerfile: docker/Dockerfile
       tags: django
