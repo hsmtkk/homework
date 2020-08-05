@@ -11,6 +11,10 @@ RUN ./configure --prefix=/usr/local \
  && make \
  && make install
 
+WORKDIR /usr/local/src
+
+RUN rm -rf ta-lib*
+
 FROM python:3.8.5-buster
 
 COPY --from=builder /usr/local /usr/local
