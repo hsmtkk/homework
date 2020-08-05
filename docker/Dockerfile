@@ -15,6 +15,7 @@ FROM python:3.8.5-buster
 
 COPY --from=builder /usr/local /usr/local
 COPY docker/wait-for-it.sh /opt/wait-for-it.sh
+COPY docker/entrypoint.sh /opt/entrypoint.sh
 
 RUN python -m pip install --upgrade pip
 
@@ -31,7 +32,5 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 
 EXPOSE 80
 
-RUN python manage.py migrate
-
-ENTRYPOINT ["/opt/wait-for-it.sh", "--timeout=0", "mysql:3306", "--", "python", "manage.py", "runserver", "0.0.0.0:80"]
+ENTRYPOINT ["/opt/wait-for-it.sh", "--timeout=0", "mysql:3306", "--", "/opt/entrypoint.sh"]
 
