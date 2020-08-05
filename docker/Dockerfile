@@ -31,5 +31,5 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 
 EXPOSE 80
 
-ENTRYPOINT ["/opt/wait-for-it.sh", "mysql:3306", "--", "python", "manage.py", "runserver", "0.0.0.0:80"]
+ENTRYPOINT ["/opt/wait-for-it.sh", "--timeout=0", "mysql:3306", "--", "python", "manage.py", "runserver", "0.0.0.0:80"]
 
