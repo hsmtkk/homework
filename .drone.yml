@@ -15,6 +15,9 @@ steps:
 
   - name: docker
     image: plugins/docker
+    when:
+      branch:
+        - master
     settings:
       repo: hsmtkk/homework
       username: hsmtkk
