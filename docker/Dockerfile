@@ -31,5 +31,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 
 EXPOSE 80
 
+RUN python manage.py migrate
+
 ENTRYPOINT ["/opt/wait-for-it.sh", "--timeout=0", "mysql:3306", "--", "python", "manage.py", "runserver", "0.0.0.0:80"]
 
