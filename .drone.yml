@@ -20,7 +20,7 @@ steps:
       password:
         from_secret: git_hub_token
       repo: hsmtkk/homework
-      dockerfile: docker/Dockerfile
+      dockerfile: ./docker/Dockerfile
       tags: django
       debug: true
 
