@@ -8,6 +8,11 @@ steps:
     commands:
       - hadolint docker/Dockerfile
 
+  - name: lint_docker_compose_yml
+    image: sdesbure/yamllint
+    commands:
+      - yamllint -d relaxed docker/docker-compose.yml
+
   - name: docker
     image: plugins/docker:latest
     settings:
