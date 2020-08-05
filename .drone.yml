@@ -17,4 +17,5 @@ steps:
       repo: hsmtkk/homework
       dockerfile: docker/Dockerfile
       tags: django
+      debug: true
 
