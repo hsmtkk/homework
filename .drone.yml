@@ -14,13 +14,10 @@ steps:
       - yamllint -d relaxed docker/docker-compose.yml
 
   - name: docker
-    image: plugins/docker:latest
+    image: plugins/docker
     settings:
+      repo: hsmtkk/homework
       username: hsmtkk
       password:
         from_secret: git_hub_token
-      repo: hsmtkk/homework
-      dockerfile: ./docker/Dockerfile
       tags: django
-      debug: true
-
