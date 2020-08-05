@@ -14,6 +14,7 @@ RUN ./configure --prefix=/usr/local \
 FROM python:3.8.5-buster
 
 COPY --from=builder /usr/local /usr/local
+COPY docker/wait-for-it.sh /opt/wait-for-it.sh
 
 RUN python -m pip install --upgrade pip
 
@@ -30,6 +31,5 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 
 EXPOSE 80
 
-ENTRYPOINT ["python", "manage.py", "runserver", "0.0.0.0:80"]
-
+ENTRYPOINT ["/opt/wait-for-it.sh", "mysql:3306", "--", "python", "manage.py", "runserver", "0.0.0.0:80"]
 

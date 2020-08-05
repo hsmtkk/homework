@@ -1,0 +1,14 @@
+version: "3.8"
+services:
+  django:
+    image: hsmtkk/homework:django
+    ports:
+      - "8000:80"
+  mysql:
+    image: mysql:8.0.21
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: aifx
+      MYSQL_USER: ken
+      MYSQL_PASSWORD: ken
+
