@@ -3,13 +3,18 @@ type: docker
 name: default
 
 steps:
+  - name: lint_dockerfile
+    image: hadolint/hadolint:v1.18.0
+    commands:
+      - hadolint docker/Dockerfile
+
   - name: docker
     image: plugins/docker:18.09
     settings:
-      dockerfile: docker/Dockerfile
+      username: hsmtkk
       password:
         from_secret: git_hub_token
       repo: hsmtkk/homework
+      dockerfile: docker/Dockerfile
       tags: django
-      username: hsmtkk
 
