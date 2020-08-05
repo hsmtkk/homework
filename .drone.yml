@@ -9,7 +9,7 @@ steps:
       - hadolint docker/Dockerfile
 
   - name: docker
-    image: plugins/docker:18.09
+    image: plugins/docker:latest
     settings:
       username: hsmtkk
       password:
