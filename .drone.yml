@@ -5,8 +5,6 @@ name: default
 steps:
   - name: docker
     image: plugins/docker:18.09
-    environment:
-      DOCKER_BUILDKIT: 1
     settings:
       dockerfile: docker/Dockerfile
       password:
