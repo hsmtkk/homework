@@ -162,6 +162,8 @@ class APIClient(object):
                     callback(ticker)
         except V20Error as e:
             logger.error(f'get_realtime_ticker_error:{e}')
+            logger.error('HTTP response code ' + str(e.code))
+            logger.error('HTTP response body ' + e.msg)
             raise
 
     def send_order(self, order: Order):
