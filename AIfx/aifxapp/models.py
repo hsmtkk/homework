@@ -9,6 +9,9 @@ class UsdJpy1M(models.Model):
     low = models.FloatField('low')
     volume = models.IntegerField('volume')
 
+    class Meta:
+        db_table = "UsdJpy1M"
+
     def __str__(self):
         return str(self.time)
 
@@ -32,6 +35,9 @@ class UsdJpy5M(models.Model):
     low = models.FloatField('low')
     volume = models.IntegerField('volume')
 
+    class Meta:
+        db_table = "UsdJpy5M"
+
     def __str__(self):
         return str(self.time)
 
@@ -54,6 +60,9 @@ class UsdJpy15M(models.Model):
     high = models.FloatField('high')
     low = models.FloatField('low')
     volume = models.IntegerField('volume')
+
+    class Meta:
+        db_table = "UsdJpy15M"
 
     def __str__(self):
         return str(self.time)

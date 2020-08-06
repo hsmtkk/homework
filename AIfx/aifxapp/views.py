@@ -10,6 +10,7 @@ from django.http.response import JsonResponse
 import constants
 import set
 from oanda.oanda import APIClient
+from oanda.oanda import Ticker
 from utils.utils import Serializer
 
 api = APIClient(set.access_token, set.account_id)
@@ -32,14 +33,21 @@ def factory_candle_class(product_code, duration):
 def create_candle_with_duration(product_code, duration, ticker):
     cls = factory_candle_class(product_code, duration)
     ticker_time = ticker.truncate_date_time(duration)
+    current_candle = cls.objects.filter(time=ticker_time)
     price = ticker.mid_price
-    try:
-        current_candle = cls.objects.get(time=ticker_time)
-
-    except cls.DoesNotExist:
-        cls.objects.create(time=ticker_time, open=price, close=price,
-                           high=price, low=price, volume=ticker.volume)
+    if current_candle is None:
+        cls.objects.update_or_create(time=ticker_time, open=price, close=price,
+                                     high=price, low=price, volume=ticker.volume)
+        current_candle.save()
         return True
+    print(current_candle)
+    # try:
+    #     current_candle = cls.objects.get(time=ticker_time)
+    #
+    # except cls.DoesNotExist:
+    #     cls.objects.create(time=ticker_time, open=price, close=price,
+    #                        high=price, low=price, volume=ticker.volume)
+    #     return True
 
     if current_candle.high <= price:
         current_candle.high = price
@@ -80,7 +88,7 @@ class StreamData(object):
     def stream_data(self):
         api.get_realtime_ticker(callback=self.trade)
 
-    def trade(self, ticker):
+    def trade(self, ticker: Ticker):
         logger.info(f'trade ticker:{ticker.__dict__}')
         for duration in constants.DURATIONS:
             created = create_candle_with_duration(ticker.product_code, duration, ticker)
@@ -171,6 +179,8 @@ def index(request):
 
 
 def candle(request):
+    streamThread = Thread(target=stream.stream_data)
+    streamThread.start()
     if request.method == 'GET':
         product_code = request.GET.get('product_code')
         if not product_code:
@@ -192,10 +202,6 @@ def candle(request):
         duration_time = constants.TRADE_MAP[duration]['duration']
         df = DataFrameCandle(product_code, duration_time)
         df.set_all_candles(limit)
-
-        streamThread = Thread(target=stream.stream_data)
-        streamThread.setDaemon(True)
-        streamThread.start()
 
         return JsonResponse({
             'product_code': df.value['product_code'],

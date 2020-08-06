@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class Balance(object):
-    def __init__(self, balance, currency):
+    def __init__(self, currency, balance):
         self.balance = balance
         self.currency = currency
 
@@ -92,10 +92,10 @@ class Trade(object):
 
 
 class APIClient(object):
-    def __init__(self, access_token, account_id, environment='practice'):
+    def __init__(self, access_token=set.access_token, account_id=set.account_id, environment='practice'):
         self.access_token = access_token
         self.account_id = account_id
-        self.client = API(access_token=access_token, environment=environment)
+        self.client = API(access_token=access_token)
 
     def get_balance(self):
         r = accounts.AccountSummary(accountID=self.account_id)
@@ -107,7 +107,7 @@ class APIClient(object):
 
         balance = float(res['account']['balance'])
         currency = res['account']['currency']
-        return Balance(balance, currency)
+        return Balance(currency, balance)
 
     def get_ticker(self, product_code):
         params = {
@@ -145,9 +145,10 @@ class APIClient(object):
         return int(res['candles'][0]['volume'])
 
     def get_realtime_ticker(self, callback):
-        r = PricingStream(accountID=self.account_id, params={
-            'instruments': set.product_code,
-            })
+        params = {
+            'instruments': set.product_code
+        }
+        r = PricingStream(accountID=self.account_id, params=params)
         try:
             for res in self.client.request(r):
                 if res['type'] == 'PRICE':
@@ -160,8 +161,11 @@ class APIClient(object):
                     volume = self.get_candle_volume()
                     ticker = Ticker(instrument, timestamp, bid, ask, volume)
                     callback(ticker)
+
         except V20Error as e:
             logger.error(f'get_realtime_ticker_error:{e}')
+            logger.error(str(e.code))
+            logger.error(e.msg)
             raise
 
     def send_order(self, order: Order):
