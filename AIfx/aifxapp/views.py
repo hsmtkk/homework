@@ -33,12 +33,10 @@ def factory_candle_class(product_code, duration):
 def create_candle_with_duration(product_code, duration, ticker):
     cls = factory_candle_class(product_code, duration)
     ticker_time = ticker.truncate_date_time(duration)
-    current_candle = cls.objects.filter(time=ticker_time)
+    current_candle = cls.objects.filter(time=ticker_time).values()
     price = ticker.mid_price
-    if current_candle is None:
-        cls.objects.update_or_create(time=ticker_time, open=price, close=price,
-                                     high=price, low=price, volume=ticker.volume)
-        current_candle.save()
+    if not current_candle:
+        cls.objects.create(time=ticker_time, open=price, close=price, high=price, low=price, volume=ticker.volume)
         return True
     print(current_candle)
     # try:
@@ -49,14 +47,14 @@ def create_candle_with_duration(product_code, duration, ticker):
     #                        high=price, low=price, volume=ticker.volume)
     #     return True
 
-    if current_candle.high <= price:
-        current_candle.high = price
-    elif current_candle.low >= price:
-        current_candle.low = price
+    if current_candle[0]['high'] <= price:
+        current_candle[0]['high'] = price
+    elif current_candle[0]['low'] >= price:
+        current_candle[0]['low'] = price
 
-    current_candle.volume += ticker.volume
-    current_candle.close = price
-    current_candle.save()
+    current_candle[0]['volume'] += ticker.volume
+    current_candle[0]['close'] = price
+    print(current_candle)
     return False
 
 
@@ -179,8 +177,9 @@ def index(request):
 
 
 def candle(request):
-    streamThread = Thread(target=stream.stream_data)
+    streamThread = Thread(target=stream.stream_data, daemon=True)
     streamThread.start()
+    print(streamThread)
     if request.method == 'GET':
         product_code = request.GET.get('product_code')
         if not product_code:
