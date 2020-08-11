@@ -48,6 +48,8 @@ def create_candle_with_duration(product_code, duration, ticker):
 
     current_candle[0]['volume'] += ticker.volume
     current_candle[0]['close'] = price
+    current_candle.update(close=current_candle[0]['close'], high=current_candle[0]['high'],
+                          low=current_candle[0]['low'], volume=current_candle[0]['volume'])
     return False
 
 
