@@ -36,7 +36,9 @@ def create_candle_with_duration(product_code, duration, ticker):
     current_candle = cls.objects.filter(time=ticker_time).values()
     price = ticker.mid_price
     if not current_candle:
-        cls.objects.create(time=ticker_time, open=price, close=price, high=price, low=price, volume=ticker.volume)
+        cls.objects.create(time=ticker_time, open=price, close=price,
+                           high=price, low=price, volume=ticker.volume)
+        # current_candle.save()
         return True
     print(current_candle)
     # try:
@@ -54,7 +56,7 @@ def create_candle_with_duration(product_code, duration, ticker):
 
     current_candle[0]['volume'] += ticker.volume
     current_candle[0]['close'] = price
-    print(current_candle)
+    # current_candle.save()
     return False
 
 
@@ -177,9 +179,8 @@ def index(request):
 
 
 def candle(request):
-    streamThread = Thread(target=stream.stream_data, daemon=True)
+    streamThread = Thread(target=stream.stream_data)
     streamThread.start()
-    print(streamThread)
     if request.method == 'GET':
         product_code = request.GET.get('product_code')
         if not product_code:

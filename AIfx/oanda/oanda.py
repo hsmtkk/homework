@@ -148,25 +148,42 @@ class APIClient(object):
         params = {
             'instruments': set.product_code
         }
-        r = PricingStream(accountID=self.account_id, params=params)
+        r = PricingInfo(accountID=self.account_id, params=params)
         try:
-            for res in self.client.request(r):
-                if res['type'] == 'PRICE':
-                    timestamp = datetime.timestamp(
-                        dateutil.parser.parse(res['time'])
-                    )
-                    instrument = res['instrument']
-                    bid = float(res['bids'][0]['price'])
-                    ask = float(res['asks'][0]['price'])
-                    volume = self.get_candle_volume()
-                    ticker = Ticker(instrument, timestamp, bid, ask, volume)
-                    callback(ticker)
-
+            res = self.client.request(r)
         except V20Error as e:
-            logger.error(f'get_realtime_ticker_error:{e}')
-            logger.error(str(e.code))
-            logger.error(e.msg)
+            logger.error(f'get_ticker_error:{e}')
             raise
+        print(res)
+        if res['prices'][0]['type'] == 'PRICE':
+            timestamp = datetime.timestamp(
+                dateutil.parser.parse(res['time'])
+            )
+            instrument = res['prices'][0]['instrument']
+            bid = float(res['prices'][0]['bids'][0]['price'])
+            ask = float(res['prices'][0]['asks'][0]['price'])
+            volume = self.get_candle_volume()
+            ticker = Ticker(instrument, timestamp, bid, ask, volume)
+            callback(ticker)
+        # try:
+        #     for res in self.client.request(r):
+        #         print(res)
+        #         if res['type'] == 'PRICE':
+        #             timestamp = datetime.timestamp(
+        #                 dateutil.parser.parse(res['time'])
+        #             )
+        #             instrument = res['instrument']
+        #             bid = float(res['bids'][0]['price'])
+        #             ask = float(res['asks'][0]['price'])
+        #             volume = self.get_candle_volume()
+        #             ticker = Ticker(instrument, timestamp, bid, ask, volume)
+        #             callback(ticker)
+        #
+        # except V20Error as e:
+        #     logger.error(f'get_realtime_ticker_error:{e}')
+        #     logger.error(str(e.code))
+        #     logger.error(e.msg)
+        #     raise
 
     def send_order(self, order: Order):
         if order.side == constants.BUY:
