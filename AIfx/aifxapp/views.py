@@ -38,16 +38,8 @@ def create_candle_with_duration(product_code, duration, ticker):
     if not current_candle:
         cls.objects.create(time=ticker_time, open=price, close=price,
                            high=price, low=price, volume=ticker.volume)
-        # current_candle.save()
         return True
     print(current_candle)
-    # try:
-    #     current_candle = cls.objects.get(time=ticker_time)
-    #
-    # except cls.DoesNotExist:
-    #     cls.objects.create(time=ticker_time, open=price, close=price,
-    #                        high=price, low=price, volume=ticker.volume)
-    #     return True
 
     if current_candle[0]['high'] <= price:
         current_candle[0]['high'] = price
@@ -56,7 +48,6 @@ def create_candle_with_duration(product_code, duration, ticker):
 
     current_candle[0]['volume'] += ticker.volume
     current_candle[0]['close'] = price
-    # current_candle.save()
     return False
 
 

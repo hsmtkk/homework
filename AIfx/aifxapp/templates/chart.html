@@ -102,7 +102,7 @@
                             limit: config.candlestick.limit,
                             duration: config.candlestick.duration,
                         },
-                        success: function(result){
+                        success: function(data){
                             var dataTable = new google.visualization.DataTable();
                             dataTable.addColumn('date', 'Date');
                             dataTable.addColumn('number', 'Low');
@@ -112,7 +112,7 @@
                             dataTable.addColumn('number', 'Volume');
 
                             var googleChartData = [];
-                            var candles = result["candles"];
+                            var candles = data["candles"];
 
                             for(var i=0; i < candles.length; i++){
                                 var candle = candles[i];

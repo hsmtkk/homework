@@ -155,16 +155,16 @@ class APIClient(object):
             logger.error(f'get_ticker_error:{e}')
             raise
         print(res)
-        if res['prices'][0]['type'] == 'PRICE':
-            timestamp = datetime.timestamp(
-                dateutil.parser.parse(res['time'])
-            )
-            instrument = res['prices'][0]['instrument']
-            bid = float(res['prices'][0]['bids'][0]['price'])
-            ask = float(res['prices'][0]['asks'][0]['price'])
-            volume = self.get_candle_volume()
-            ticker = Ticker(instrument, timestamp, bid, ask, volume)
-            callback(ticker)
+        timestamp = datetime.timestamp(
+            dateutil.parser.parse(res['time'])
+        )
+        price = res['prices'][0]
+        instrument = price['instrument']
+        bid = float(price['bids'][0]['price'])
+        ask = float(price['asks'][0]['price'])
+        volume = self.get_candle_volume()
+        ticker = Ticker(instrument, timestamp, bid, ask, volume)
+        callback(ticker)
         # try:
         #     for res in self.client.request(r):
         #         print(res)
