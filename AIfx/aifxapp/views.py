@@ -50,6 +50,7 @@ def create_candle_with_duration(product_code, duration, ticker):
     current_candle[0]['close'] = price
     current_candle.update(close=current_candle[0]['close'], high=current_candle[0]['high'],
                           low=current_candle[0]['low'], volume=current_candle[0]['volume'])
+
     return False
 
 
@@ -101,7 +102,7 @@ class DataFrameCandle(object):
 
     def set_all_candles(self, limit=1000):
         try:
-            self.candles = self.candle_cls.objects.order_by('time').reverse()[:limit]
+            self.candles = self.candle_cls.objects.order_by('time')[:limit]
         except self.candle_cls.DoesNotExist:
             return None
         return self.candles

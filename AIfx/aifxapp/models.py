@@ -10,6 +10,7 @@ class UsdJpy1M(models.Model):
     volume = models.IntegerField('volume')
 
     class Meta:
+        ordering = ['-time']
         db_table = "UsdJpy1M"
 
     def __str__(self):
@@ -36,6 +37,7 @@ class UsdJpy5M(models.Model):
     volume = models.IntegerField('volume')
 
     class Meta:
+        ordering = ['-time']
         db_table = "UsdJpy5M"
 
     def __str__(self):
@@ -62,6 +64,7 @@ class UsdJpy15M(models.Model):
     volume = models.IntegerField('volume')
 
     class Meta:
+        ordering = ['-time']
         db_table = "UsdJpy15M"
 
     def __str__(self):
