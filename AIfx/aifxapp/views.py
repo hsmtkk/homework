@@ -69,7 +69,7 @@ def empty_none(input_list):
 
 
 class Sma(Serializer):
-    def __init__(self, period, values):
+    def __init__(self, period: int, values: list):
         self.period = period
         self.values = values
 
@@ -178,7 +178,6 @@ def candle(request):
     if request.method == 'GET':
         product_code = request.GET.get('product_code')
         if not product_code:
-            # return JsonResponse({'error': 'No product_code params'})
             return render(request, 'chart.html')
 
         limit_str = request.GET.get('limit')
@@ -197,8 +196,30 @@ def candle(request):
         df = DataFrameCandle(product_code, duration_time)
         df.set_all_candles(limit)
 
+        sma = request.GET.get('sma')
+        if sma:
+            sma_period1 = request.GET.get('smaPeriod1')
+            sma_period2 = request.GET.get('smaPeriod2')
+            sma_period3 = request.GET.get('smaPeriod3')
+            if sma_period1:
+                period1 = int(sma_period1)
+            if sma_period2:
+                period2 = int(sma_period2)
+            if sma_period3:
+                period3 = int(sma_period3)
+            if not sma_period1 or period1 < 0:
+                period1 = 7
+            if not sma_period2 or period2 < 0:
+                period2 = 14
+            if not sma_period3 or period3 < 0:
+                period3 = 50
+            df.add_sma(period1)
+            df.add_sma(period2)
+            df.add_sma(period3)
+
         return JsonResponse({
             'product_code': df.value['product_code'],
             'duration': df.value['duration'],
             'candles': df.value['candles'],
+            'smas': df.value['smas'],
         })
