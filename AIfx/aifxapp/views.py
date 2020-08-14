@@ -98,8 +98,14 @@ class Rsi(Serializer):
 
 
 class Macd(Serializer):
-    def __init__(self):
-        
+    def __init__(self, fast_period: int, slow_period: int, signal_period: int,
+                 macd: list, macd_signal: list, macd_hist: list):
+        self.fast_period = fast_period
+        self.slow_period = slow_period
+        self.signal_period = signal_period
+        self.macd = macd
+        self.macd_signal = macd_signal
+        self.macd_hist = macd_hist
 
 
 """real time ticker"""
@@ -130,6 +136,7 @@ class DataFrameCandle(object):
         self.emas = []
         self.bbands = BBands(0, 0, [], [], [])
         self.rsi = Rsi(0, 0, 0, [])
+        self.macd = Macd(0, 0, 0, [], [], [])
 
     def set_all_candles(self, limit=1000):
         try:
@@ -148,6 +155,7 @@ class DataFrameCandle(object):
             'emas': empty_none([s.value for s in self.emas]),
             'bbands': self.bbands.value,
             'rsi': self.rsi.value,
+            'macd': self.macd.value,
         }
 
     @property
@@ -216,6 +224,18 @@ class DataFrameCandle(object):
             values = talib.RSI(np.asarray(self.closes), period)
             rsi = Rsi(period, high, low, nan_zero(values).tolist())
             self.rsi = rsi
+            return True
+        return False
+
+    def add_macd(self, fast_period: int, slow_period: int, signal_period: int):
+        if len(self.candles) > 1:
+            macd, macd_signal, macd_hist = talib.MACD(
+                np.asarray(self.closes), fast_period, slow_period, signal_period
+            )
+            macd_list = nan_zero(macd).tolist()
+            macd_signal_list = nan_zero(macd_signal).tolist()
+            macd_hist_list = nan_zero(macd_hist).tolist()
+            self.macd = Macd(fast_period, slow_period, signal_period, macd_list, macd_signal_list, macd_hist_list)
             return True
         return False
 
@@ -331,6 +351,25 @@ def candle(request):
                 low = 30
             df.add_rsi(period, high, low)
 
+        macd = request.GET.get('macd')
+        if macd:
+            macd_period1 = request.GET.get('macdPeriod1')
+            macd_period2 = request.GET.get('macdPeriod2')
+            macd_period3 = request.GET.get('macdPeriod3')
+            if macd_period1:
+                period1 = int(macd_period1)
+            if macd_period2:
+                period2 = int(macd_period2)
+            if macd_period3:
+                period3 = int(macd_period3)
+            if not macd_period1 or period1 < 0:
+                period1 = 12
+            if not macd_period2 or period2 < 0:
+                period2 = 26
+            if not macd_period3 or period3 < 0:
+                period3 = 9
+            df.add_macd(period1, period2, period3)
+
         return JsonResponse({
             'product_code': df.value['product_code'],
             'duration': df.value['duration'],
@@ -339,4 +378,5 @@ def candle(request):
             'emas': df.value['emas'],
             'bbands': df.value['bbands'],
             'rsi': df.value['rsi'],
+            'macd': df.value['macd'],
         })
