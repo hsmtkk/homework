@@ -74,6 +74,34 @@ class Sma(Serializer):
         self.values = values
 
 
+class Ema(Serializer):
+    def __init__(self, period: int, values: list):
+        self.period = period
+        self.values = values
+
+
+class BBands(Serializer):
+    def __init__(self, n: int, k: float, high: list, mid: list, low: list):
+        self.n = n
+        self.k = k
+        self.high = high
+        self.mid = mid
+        self.low = low
+
+
+class Rsi(Serializer):
+    def __init__(self, period: int, high: int, low: int, values: list):
+        self.period = period
+        self.high = high
+        self.low = low
+        self.values = values
+
+
+class Macd(Serializer):
+    def __init__(self):
+        
+
+
 """real time ticker"""
 
 
@@ -99,6 +127,9 @@ class DataFrameCandle(object):
         self.candle_cls = factory_candle_class(self.product_code, self.duration)
         self.candles = []
         self.smas = []
+        self.emas = []
+        self.bbands = BBands(0, 0, [], [], [])
+        self.rsi = Rsi(0, 0, 0, [])
 
     def set_all_candles(self, limit=1000):
         try:
@@ -114,6 +145,9 @@ class DataFrameCandle(object):
             'duration': self.duration,
             'candles': [c.value for c in self.candles],
             'smas': empty_none([s.value for s in self.smas]),
+            'emas': empty_none([s.value for s in self.emas]),
+            'bbands': self.bbands.value,
+            'rsi': self.rsi.value,
         }
 
     @property
@@ -156,6 +190,32 @@ class DataFrameCandle(object):
             values = talib.SMA(np.asarray(self.closes), period)
             sma = Sma(period, nan_zero(values).tolist())
             self.smas.append(sma)
+            return True
+        return False
+
+    def add_ema(self, period):
+        if len(self.closes) > period:
+            values = talib.EMA(np.asarray(self.closes), period)
+            ema = Ema(period, nan_zero(values).tolist())
+            self.smas.append(ema)
+            return True
+        return False
+
+    def add_bbands(self, n: int, k: float):
+        if n <= len(self.closes):
+            high, mid, low = talib.BBANDS(np.asarray(self.closes), n, k, k, 0)
+            high_list = nan_zero(high).tolist()
+            mid_list = nan_zero(mid).tolist()
+            low_list = nan_zero(low).tolist()
+            self.bbands = BBands(n, k, high_list, mid_list, low_list)
+            return True
+        return False
+
+    def add_rsi(self, period, high, low):
+        if len(self.closes) > period:
+            values = talib.RSI(np.asarray(self.closes), period)
+            rsi = Rsi(period, high, low, nan_zero(values).tolist())
+            self.rsi = rsi
             return True
         return False
 
@@ -217,9 +277,66 @@ def candle(request):
             df.add_sma(period2)
             df.add_sma(period3)
 
+        ema = request.GET.get('ema')
+        if ema:
+            ema_period1 = request.GET.get('emaPeriod1')
+            ema_period2 = request.GET.get('emaPeriod2')
+            ema_period3 = request.GET.get('emaPeriod3')
+            if ema_period1:
+                period1 = int(ema_period1)
+            if ema_period2:
+                period2 = int(ema_period2)
+            if ema_period3:
+                period3 = int(ema_period3)
+            if not ema_period1 or period1 < 0:
+                period1 = 7
+            if not ema_period2 or period2 < 0:
+                period2 = 14
+            if not ema_period3 or period3 < 0:
+                period3 = 50
+            df.add_ema(period1)
+            df.add_ema(period2)
+            df.add_ema(period3)
+
+        bbands = request.GET.get('bbands')
+        if bbands:
+            str_n = request.GET.get('bbandsN')
+            str_k = request.GET.get('bbandsK')
+            if str_n:
+                n = int(str_n)
+            if str_k:
+                k = float(str_k)
+            if not str_n or n < 0 or n is None:
+                n = 20
+            if not str_k or k < 0 or k is None:
+                k = 2.0
+            df.add_bbands(n, k)
+
+        rsi = request.GET.get('rsi')
+        if rsi:
+            str_period = request.GET.get('rsiPeriod')
+            str_high = request.GET.get('rsiHigh')
+            str_low = request.GET.get('rsiLow')
+            if str_period:
+                period = int(str_period)
+            else:
+                period = 14
+            if str_high:
+                high = int(str_high)
+            else:
+                high = 70
+            if str_low:
+                low = int(str_low)
+            else:
+                low = 30
+            df.add_rsi(period, high, low)
+
         return JsonResponse({
             'product_code': df.value['product_code'],
             'duration': df.value['duration'],
             'candles': df.value['candles'],
             'smas': df.value['smas'],
+            'emas': df.value['emas'],
+            'bbands': df.value['bbands'],
+            'rsi': df.value['rsi'],
         })

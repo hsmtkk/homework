@@ -15,6 +15,10 @@
             #filter_div{
                 height:50px;
             }
+            .technical_title{
+                margin: 10px;
+                color: black;
+            }
         </style>
 
         <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
@@ -43,12 +47,42 @@
                     periods: [],
                     values: []
                 },
+                ema: {
+                    enable: false,
+                    indexes: [],
+                    periods: [],
+                    values: []
+                },
+                bbands: {
+                    enable: false,
+                    indexes: [],
+                    n: 20,
+                    k: 2,
+                    high: [],
+                    mid: [],
+                    low: []
+                },
+                rsi: {
+                    enable: false,
+                    indexes: {'high': 0, 'value': 0, 'low': 0},
+                    period: 14,
+                    high: 70,
+                    values: [],
+                    low: 30
+                },
             };
 
             function initConfigValues(){
                 config.dataTable.index = 0;
                 config.sma.indexes = [];
                 config.sma.values = [];
+                config.ema.indexes = [];
+                config.ema.values = [];
+                config.bbands.indexes = [];
+                config.bbands.high = [];
+                config.bbands.mid = [];
+                config.bbands.low = [];
+                config.rsi.indexes = [];
             }
 
             function drawChart(dataTable) {
@@ -93,6 +127,54 @@
                     }
                 }
 
+                if (config.ema.enable == true){
+                    for (i = 0; i < config.ema.indexes.length; i++){
+                        options.series[config.ema.indexes[i]] = {type: 'line'};
+                        view.columns.push(config.candlestick.numViews + config.ema.indexes[i]);
+                    }
+                }
+
+                if (config.bbands.enable == true){
+                    for (i = 0; i < config.bbands.indexes.length; i++){
+                        options.series[config.bbands.indexes[i]] = {
+                            type: 'line',
+                            color: 'blue',
+                            lineWidth: 1
+                        };
+                        view.columns.push(config.candlestick.numViews + config.bbands.indexes[i]);
+                    }
+                }
+
+                if (config.rsi.enable == true) {
+                    if ($('#rsi_div').length == 0) {
+                        $('#technical_div').append(
+                                "<div id='rsi_div' class='bottom_chart'>" +
+                                "<span class='technical_title'>RSI</span>" +
+                                "<div id='rsi_chart'></div>" +
+                                "</div>")
+                    }
+                    var high = config.candlestick.numViews + config.rsi.indexes['high'];
+                    var value = config.candlestick.numViews + config.rsi.indexes['value'];
+                    var low = config.candlestick.numViews + config.rsi.indexes['low'];
+                    var rsiChart = new google.visualization.ChartWrapper({
+                        'chartType': 'LineChart',
+                        'containerId': 'rsi_chart',
+                        'options': {
+                            'hAxis': {'slantedText': false},
+                            'legend': {'position': 'none'},
+                            'series': {
+                                0: {color: 'black', lineWidth: 1},
+                                1: {color: 'blue'},
+                                2: {color: 'black', lineWidth: 1}
+                            }
+                        },
+                        'view': {
+                            'columns': [ { 'type': 'string' }, high, value, low]
+                        }
+                    });
+                    charts.push(rsiChart)
+                }
+
                 var controlWrapper = new google.visualization.ControlWrapper({
                     'controlType': 'ChartRangeFilter',
                     'containerId': 'filter_div',
@@ -115,68 +197,167 @@
             function send () {
                 if (config.api.enable == false){
                     return
+                }
+                var params = {
+                    "product_code": config.candlestick.product_code,
+                    "limit": config.candlestick.limit,
+                    "duration": config.candlestick.duration,
                 };
+                if (config.sma.enable == true) {
+                    params["sma"] = true;
+                    params["smaPeriod1"] = config.sma.periods[0];
+                    params["smaPeriod2"] = config.sma.periods[1];
+                    params["smaPeriod3"] = config.sma.periods[2];
+                }
+                if (config.ema.enable == true) {
+                    params["ema"] = true;
+                    params["emaPeriod1"] = config.ema.periods[0];
+                    params["emaPeriod2"] = config.ema.periods[1];
+                    params["emaPeriod3"] = config.ema.periods[2];
+                }
+                if (config.bbands.enable == true) {
+                    params["bbands"] = true;
+                    params["bbandsN"] = config.bbands.n;
+                    params["bbandsK"] = config.bbands.k;
+                }
+                if (config.rsi.enable == true){
+                    params["rsi"] = true;
+                    params["rsiPeriod"] = config.rsi.period;
+                    params["rsiHigh"] = config.rsi.high;
+                    params["rsiLow"] = config.rsi.low;
+                }
 
-                $.ajax(
-                    {
-                        type: "GET",
-                        url: "/",
-                        data: {
-                            product_code: config.candlestick.product_code,
-                            limit: config.candlestick.limit,
-                            duration: config.candlestick.duration,
+                $.get("/", params).done(function (data) {
+                    initConfigValues();
+                    var dataTable = new google.visualization.DataTable();
+                    dataTable.addColumn('date', 'Date');
+                    dataTable.addColumn('number', 'Low');
+                    dataTable.addColumn('number', 'Open');
+                    dataTable.addColumn('number', 'Close');
+                    dataTable.addColumn('number', 'High');
+                    dataTable.addColumn('number', 'Volume');
 
-                        },
-                        success: function(data){
-                            initConfigValues();
-                            var dataTable = new google.visualization.DataTable();
-                            dataTable.addColumn('date', 'Date');
-                            dataTable.addColumn('number', 'Low');
-                            dataTable.addColumn('number', 'Open');
-                            dataTable.addColumn('number', 'Close');
-                            dataTable.addColumn('number', 'High');
-                            dataTable.addColumn('number', 'Volume');
-
-                            if (data["smas"] != undefined){
-                                for (i = 0; i < data['smas'].length; i++){
-                                    var smaData = data['smas'][i];
-                                    if (smaData.length == 0){ continue; }
-                                    config.dataTable.index += 1;
-                                    config.sma.indexes[i] = config.dataTable.index;
-                                    dataTable.addColumn('number', 'SMA' + smaData["period"].toString());
-                                    config.sma.values[i] = smaData["values"]
-                                }
-                            }
-
-                            var googleChartData = [];
-                            var candles = data["candles"];
-
-                            for(var i=0; i < candles.length; i++){
-                                var candle = candles[i];
-                                var date = new Date(candle.time);
-                                var datas = [date, candle.low, candle.open,
-                                    candle.close, candle.high, candle.volume];
-
-                                if (data["smas"] != undefined){
-                                    for (j = 0; j < config.sma.values.length; j++){
-                                        if (config.sma.values[j][i] == 0){
-                                            datas.push(null);
-                                        } else {
-                                            datas.push(config.sma.values[j][i]);
-                                        }
-                                    }
-                                }
-
-                                googleChartData.push(datas)
-                            }
-
-
-                            dataTable.addRows(googleChartData);
-                            drawChart(dataTable);
+                    if (data["smas"] != undefined) {
+                        for (i = 0; i < data['smas'].length; i++){
+                            var smaData = data['smas'][i];
+                            if (smaData.length == 0){ continue; }
+                            config.dataTable.index += 1;
+                            config.sma.indexes[i] = config.dataTable.index;
+                            dataTable.addColumn('number', 'SMA' + smaData["period"].toString());
+                            config.sma.values[i] = smaData["values"]
                         }
                     }
-                )
-            };
+
+                    if (data["emas"] != undefined) {
+                        for (i = 0; i < data['emas'].length; i++){
+                            var emaData = data['emas'][i];
+                            if (emaData.length == 0){ continue; }
+                            config.dataTable.index += 1;
+                            config.ema.indexes[i] = config.dataTable.index;
+                            dataTable.addColumn('number', 'EMA' + emaData["period"].toString());
+                            config.ema.values[i] = emaData["values"]
+                        }
+                    }
+
+                    if (data['bbands'] != undefined){
+                        var n = data['bbands']['n'];
+                        var k = data['bbands']['k'];
+                        var high = data['bbands']['high'];
+                        var mid = data['bbands']['mid'];
+                        var low = data['bbands']['low'];
+                        config.dataTable.index += 1;
+                        config.bbands.indexes[0] = config.dataTable.index;
+                        config.dataTable.index += 1;
+                        config.bbands.indexes[1] = config.dataTable.index;
+                        config.dataTable.index += 1;
+                        config.bbands.indexes[2] = config.dataTable.index;
+                        dataTable.addColumn('number', 'BBands High(' + n + ', ' + k + ')');
+                        dataTable.addColumn('number', 'BBands Mid(' + n + ', ' + k + ')');
+                        dataTable.addColumn('number', 'BBands Low(' + n + ', ' + k + ')');
+                        config.bbands.high = high;
+                        config.bbands.mid = mid;
+                        config.bbands.low = low;
+                    }
+
+                    if (data['rsi'] != undefined ){
+                        config.dataTable.index += 1;
+                        config.rsi.indexes['high'] = config.dataTable.index;
+                        config.dataTable.index += 1;
+                        config.rsi.indexes['value'] = config.dataTable.index;
+                        config.dataTable.index += 1;
+                        config.rsi.indexes['low'] = config.dataTable.index;
+                        config.rsi.period = data['rsi']['period'];
+                        config.rsi.high = data['rsi']['high'];
+                        config.rsi.low = data['rsi']['low'];
+                        config.rsi.values = data['rsi']['values'];
+                        dataTable.addColumn('number', 'RSI(' + config.rsi.period + ')');
+                        dataTable.addColumn('number', 'RSI(' + config.rsi.high + ')');
+                        dataTable.addColumn('number', 'RSI(' + config.rsi.low + ')');
+                    }
+
+                    var googleChartData = [];
+                    var candles = data["candles"];
+
+                    for(var i=0; i < candles.length; i++){
+                        var candle = candles[i];
+                        var date = new Date(candle.time);
+                        var datas = [date, candle.low, candle.open, candle.close, candle.high, candle.volume];
+
+                        if (data["smas"] != undefined) {
+                            for (j = 0; j < config.sma.values.length; j++) {
+                                if (config.sma.values[j][i] == 0) {
+                                    datas.push(null);
+                                } else {
+                                    datas.push(config.sma.values[j][i]);
+                                }
+                            }
+                        }
+
+                        if (data["emas"] != undefined) {
+                            for (j = 0; j < config.ema.values.length; j++) {
+                                if (config.ema.values[j][i] == 0) {
+                                    datas.push(null);
+                                } else {
+                                    datas.push(config.ema.values[j][i]);
+                                }
+                            }
+                        }
+
+                        if (data["bbands"] != undefined){
+                            if (config.bbands.high[i] == 0){
+                                datas.push(null);
+                            } else{
+                                datas.push(config.bbands.high[i]);
+                            }
+                            if (config.bbands.mid[i] == 0){
+                                datas.push(null);
+                            } else{
+                                datas.push(config.bbands.mid[i]);
+                            }
+                            if (config.bbands.low[i] == 0){
+                                datas.push(null);
+                            } else{
+                                datas.push(config.bbands.low[i]);
+                            }
+                        }
+
+                        if (data["rsi"] != undefined){
+                            datas.push(config.rsi.high);
+                            if (config.rsi.values[i] == 0){
+                                datas.push(null);
+                            } else{
+                                datas.push(config.rsi.values[i]);
+                            }
+                            datas.push(config.rsi.low);
+                        }
+
+                        googleChartData.push(datas)
+                    }
+
+                    dataTable.addRows(googleChartData);
+                    drawChart(dataTable);
+                })
+            }
 
             function changeDuration(s){
                 config.candlestick.duration = s;
@@ -193,7 +374,7 @@
                     config.api.enable = true;
                 });
 
-                $('#inputSma').change(finction(){
+                $('#inputSma').change(function(){
                     if (this.checked === true){
                         config.sma.enable = true;
                     } else {
@@ -201,17 +382,76 @@
                     }
                     send();
                 });
-
-                $("#inputSmaPeriod1").change(function(){
+                $('#inputSmaPeriod1').change(function(){
                     config.sma.periods[0] = this.value;
                     send();
                 });
-                $("#inputSmaPeriod2").change(function(){
+                $('#inputSmaPeriod2').change(function(){
                     config.sma.periods[1] = this.value;
                     send();
                 });
-                $("#inputSmaPeriod3").change(function(){
+                $('#inputSmaPeriod3').change(function(){
                     config.sma.periods[2] = this.value;
+                    send();
+                });
+
+                $('#inputEma').change(function(){
+                    if (this.checked === true){
+                        config.ema.enable = true;
+                    } else {
+                        config.ema.enable = false;
+                    }
+                    send();
+                });
+                $('#inputEmaPeriod1').change(function(){
+                    config.ema.periods[0] = this.value;
+                    send();
+                });
+                $('#inputEmaPeriod2').change(function(){
+                    config.ema.periods[1] = this.value;
+                    send();
+                });
+                $('#inputEmaPeriod3').change(function(){
+                    config.ema.periods[2] = this.value;
+                    send();
+                });
+
+                $('#inputBBands').change(function(){
+                    if (this.checked === true){
+                        config.bbands.enable = true;
+                    } else{
+                        config.bbands.enable = false;
+                    }
+                    send();
+                });
+                $('#inputBBandsN').change(function(){
+                    config.bbands.n = this.value;
+                    send();
+                });
+                $('#inputBBandsK').change(function(){
+                    config.bbands.k = this.value;
+                    send();
+                });
+
+                $('#inputRsi').change(function() {
+                    if (this.checked === true) {
+                        config.rsi.enable = true;
+                    } else {
+                        config.rsi.enable = false;
+                        $('#rsi_div').remove();
+                    }
+                    send();
+                });
+                $("#inputRsiPeriod").change(function() {
+                    config.rsi.period = this.value;
+                    send();
+                });
+                $("#inputRsiHigh").change(function() {
+                    config.rsi.high = this.value;
+                    send();
+                });
+                $("#inputRsiLow").change(function() {
+                    config.rsi.low = this.value;
                     send();
                 });
             }
@@ -226,6 +466,7 @@
 
         <div id="dashboard_div">
             <div id="chart_div"></div>
+            <div id="technical_div"></div>
             <div id="filter_div"></div>
         </div>
 
@@ -234,6 +475,26 @@
             Period <input id="inputSmaPeriod1" type="text" value="7" style="width: 15px;">
             <input id="inputSmaPeriod2" type="text" value="14" style="width: 15px;">
             <input id="inputSmaPeriod3" type="text" value="50" style="width: 15px;">
+        </div>
+
+        <div>
+            EMA <input id="inputEma" type="checkbox">
+            Period <input id="inputEmaPeriod1" type="text" value="7" style="width: 15px;">
+            <input id="inputEmaPeriod2" type="text" value="14" style="width: 15px;">
+            <input id="inputEmaPeriod3" type="text" value="50" style="width: 15px;">
+        </div>
+
+        <div>
+            BBands <input id="inputBBands" type="checkbox">
+            Period <input id="inputBBandsN" type="text" value="20" style="width: 15px;">
+            Sigma <input id="inputBBandsK" type="text" value="2" style="width: 15px;">
+        </div>
+
+        <div>
+            Rsi <input id="inputRsi" type="checkbox">
+            Period <input id="inputRsiPeriod" type="text" value="14" style="width: 15px;">
+            High <input id="inputRsiHigh" type="text" value="70" style="width: 15px;">
+            Low <input id="inputRsiLow" type="text" value="30" style="width: 15px;">
         </div>
     </body>
 </html>
