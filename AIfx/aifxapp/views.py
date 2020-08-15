@@ -8,6 +8,7 @@ import talib
 from .models import UsdJpy1M, UsdJpy5M, UsdJpy15M, SignalEvent
 from django.shortcuts import render
 from django.http.response import JsonResponse
+from django.utils.timezone import utc
 
 import constants
 import set
@@ -107,6 +108,118 @@ class Macd(Serializer):
         self.macd = macd
         self.macd_signal = macd_signal
         self.macd_hist = macd_hist
+
+
+""" signal event """
+
+
+def get_signal_events_by_count(count, product_code=set.product_code):
+    rows = SignalEvent.objects.filter(product_code=product_code == product_code).order_by('-time').limit(count).all()
+    if rows is None:
+        return []
+    rows.reverse()
+    return rows
+
+
+def get_signal_events_after_time(time):
+    rows = SignalEvent.objects.filter(time__gte=time).all()
+    if rows is None:
+        return []
+    return rows
+
+
+class SignalEvents(object):
+    def __init__(self, signals=None):
+        if signals is None:
+            self.signals = []
+        else:
+            self.signals = signals
+
+    def can_buy(self, time):
+        if len(self.signals) == 0:
+            return True
+
+        last_signal = self.signals[-1]
+        if last_signal.side == constants.SELL and last_signal.time < time:
+            return True
+
+        return False
+
+    def can_sell(self, time):
+        if len(self.signals) == 0:
+            return False
+
+        last_signal = self.signals[-1]
+        if last_signal.side == constants.BUY and last_signal.time < time:
+            return True
+
+        return False
+
+    def buy(self, product_code, time, price, units, save):
+        if not self.can_buy(time):
+            return False
+
+        signal_event = SignalEvent(time=time, product_code=product_code, side=constants.BUY,
+                                   price=price, units=units)
+        if save:
+            signal_event.save()
+
+        self.signals.append(signal_event)
+        return True
+
+    def sell(self, product_code, time, price, units, save):
+        if not self.can_sell(time):
+            return False
+
+        signal_event = SignalEvent(time=time, product_code=product_code, side=constants.SELL,
+                                   price=price, units=units)
+        if save:
+            signal_event.save()
+
+        self.signals.append(signal_event)
+        return True
+
+    @staticmethod
+    def get_signal_events_by_count(count: int):
+        signal_events = get_signal_events_by_count(count=count)
+        return SignalEvents(signal_events)
+
+    @staticmethod
+    def get_signal_events_after_time(time: datetime.datetime.time):
+        signal_events = get_signal_events_after_time(time=time)
+        return SignalEvents(signal_events)
+
+    @property
+    def profit(self):
+        total = 0.0
+        before_sell = 0.0
+        is_holding = False
+        for i in range(len(self.signals)):
+            signal_event = self.signals[i]
+            if i == 0 and signal_event.side == constants.SELL:
+                continue
+            if signal_event.side == constants.BUY:
+                total -= signal_event.price * signal_event.units
+                is_holding = True
+            if signal_event.side == constants.SELL:
+                total += signal_event.price * signal_event.units
+                is_holding = False
+                before_sell = total
+        if is_holding:
+            return before_sell
+        return total
+
+    @property
+    def value(self):
+        signals = [s.value for s in self.signals]
+        if not signals:
+            signals = None
+
+        profit = self.profit
+        if not self.profit:
+            profit = None
+
+        return {'signals': signals, 'profit': profit}
 
 
 """real time ticker"""
@@ -248,118 +361,6 @@ class DataFrameCandle(object):
             self.events = signal_events
             return True
         return False
-
-
-""" signal event """
-
-
-def get_signal_events_by_count(count, product_code=set.product_code):
-    rows = SignalEvent.objects.filter(product_code=product_code == product_code).order_by('-time').limit(count).all()
-    if rows is None:
-        return []
-    rows.reverse()
-    return rows
-
-
-def get_signal_events_after_time(time):
-    rows = SignalEvent.objects.filter(time=time >= time).all()
-    if rows is None:
-        return []
-    return rows
-
-
-class SignalEvents(object):
-    def __init__(self, signals=None):
-        if signals is None:
-            self.signals = []
-        else:
-            self.signals = signals
-
-    def can_buy(self, time):
-        if len(self.signals) == 0:
-            return True
-
-        last_signal = self.signals[-1]
-        if last_signal.side == constants.SELL and last_signal.time < time:
-            return True
-
-        return False
-
-    def can_sell(self, time):
-        if len(self.signals) == 0:
-            return False
-
-        last_signal = self.signals[-1]
-        if last_signal.side == constants.BUY and last_signal.time < time:
-            return True
-
-        return False
-
-    def buy(self, product_code, time, price, units, save):
-        if not self.can_buy(time):
-            return False
-
-        signal_event = SignalEvent(time=time, product_code=product_code, side=constants.BUY,
-                                   price=price, units=units)
-        if save:
-            signal_event.save()
-
-        self.signals.append(signal_event)
-        return True
-
-    def sell(self, product_code, time, price, units, save):
-        if not self.can_sell(time):
-            return False
-
-        signal_event = SignalEvent(time=time, product_code=product_code, side=constants.SELL,
-                                   price=price, units=units)
-        if save:
-            signal_event.save()
-
-        self.signals.append(signal_event)
-        return True
-
-    @staticmethod
-    def get_signal_events_by_count(count: int):
-        signal_events = get_signal_events_by_count(count=count)
-        return SignalEvents(signal_events)
-
-    @staticmethod
-    def get_signal_events_after_time(time: datetime.datetime.time):
-        signal_events = get_signal_events_after_time(time=time)
-        return SignalEvents(signal_events)
-
-    @property
-    def profit(self):
-        total = 0.0
-        before_sell = 0.0
-        is_holding = False
-        for i in range(len(self.signals)):
-            signal_event = self.signals[i]
-            if i == 0 and signal_event.side == constants.SELL:
-                continue
-            if signal_event.side == constants.BUY:
-                total -= signal_event.price * signal_event.units
-                is_holding = True
-            if signal_event.side == constants.SELL:
-                total += signal_event.price * signal_event.units
-                is_holding = False
-                before_sell = total
-        if is_holding:
-            return before_sell
-        return total
-
-    @property
-    def value(self):
-        signals = [s.value for s in self.signals]
-        if not signals:
-            signals = None
-
-        profit = self.profit
-        if not self.profit:
-            profit = None
-
-        return {'signals': signals, 'profit': profit}
 
 
 """ main """
