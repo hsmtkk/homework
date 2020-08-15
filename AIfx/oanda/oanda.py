@@ -10,7 +10,6 @@ from oandapyV20.endpoints import instruments
 from oandapyV20.endpoints import orders
 from oandapyV20.endpoints import trades
 from oandapyV20.endpoints.pricing import PricingInfo
-from oandapyV20.endpoints.pricing import PricingStream
 from oandapyV20.exceptions import V20Error
 
 import constants

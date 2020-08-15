@@ -1,9 +1,11 @@
 import logging
 from threading import Thread
+import datetime
+
 import numpy as np
 import talib
 
-from .models import UsdJpy1M, UsdJpy5M, UsdJpy15M
+from .models import UsdJpy1M, UsdJpy5M, UsdJpy15M, SignalEvent
 from django.shortcuts import render
 from django.http.response import JsonResponse
 
@@ -39,7 +41,6 @@ def create_candle_with_duration(product_code, duration, ticker):
         cls.objects.create(time=ticker_time, open=price, close=price,
                            high=price, low=price, volume=ticker.volume)
         return True
-    print(current_candle)
 
     if current_candle[0]['high'] <= price:
         current_candle[0]['high'] = price
@@ -137,8 +138,9 @@ class DataFrameCandle(object):
         self.bbands = BBands(0, 0, [], [], [])
         self.rsi = Rsi(0, 0, 0, [])
         self.macd = Macd(0, 0, 0, [], [], [])
+        self.events = SignalEvents()
 
-    def set_all_candles(self, limit=1000):
+    def set_all_candles(self, limit):
         try:
             self.candles = self.candle_cls.objects.order_by('time')[:limit]
         except self.candle_cls.DoesNotExist:
@@ -156,6 +158,7 @@ class DataFrameCandle(object):
             'bbands': self.bbands.value,
             'rsi': self.rsi.value,
             'macd': self.macd.value,
+            'events': self.events.value,
         }
 
     @property
@@ -205,7 +208,7 @@ class DataFrameCandle(object):
         if len(self.closes) > period:
             values = talib.EMA(np.asarray(self.closes), period)
             ema = Ema(period, nan_zero(values).tolist())
-            self.smas.append(ema)
+            self.emas.append(ema)
             return True
         return False
 
@@ -239,17 +242,127 @@ class DataFrameCandle(object):
             return True
         return False
 
+    def add_events(self, time):
+        signal_events = get_signal_events_after_time(time)
+        if len(signal_events) > 0:
+            self.events = signal_events
+            return True
+        return False
+
+
+""" signal event """
+
+
+def get_signal_events_by_count(count, product_code=set.product_code):
+    rows = SignalEvent.objects.filter(product_code=product_code == product_code).order_by('-time').limit(count).all()
+    if rows is None:
+        return []
+    rows.reverse()
+    return rows
+
+
+def get_signal_events_after_time(time):
+    rows = SignalEvent.objects.filter(time=time >= time).all()
+    if rows is None:
+        return []
+    return rows
+
+
+class SignalEvents(object):
+    def __init__(self, signals=None):
+        if signals is None:
+            self.signals = []
+        else:
+            self.signals = signals
+
+    def can_buy(self, time):
+        if len(self.signals) == 0:
+            return True
+
+        last_signal = self.signals[-1]
+        if last_signal.side == constants.SELL and last_signal.time < time:
+            return True
+
+        return False
+
+    def can_sell(self, time):
+        if len(self.signals) == 0:
+            return False
+
+        last_signal = self.signals[-1]
+        if last_signal.side == constants.BUY and last_signal.time < time:
+            return True
+
+        return False
+
+    def buy(self, product_code, time, price, units, save):
+        if not self.can_buy(time):
+            return False
+
+        signal_event = SignalEvent(time=time, product_code=product_code, side=constants.BUY,
+                                   price=price, units=units)
+        if save:
+            signal_event.save()
+
+        self.signals.append(signal_event)
+        return True
+
+    def sell(self, product_code, time, price, units, save):
+        if not self.can_sell(time):
+            return False
+
+        signal_event = SignalEvent(time=time, product_code=product_code, side=constants.SELL,
+                                   price=price, units=units)
+        if save:
+            signal_event.save()
+
+        self.signals.append(signal_event)
+        return True
+
+    @staticmethod
+    def get_signal_events_by_count(count: int):
+        signal_events = get_signal_events_by_count(count=count)
+        return SignalEvents(signal_events)
+
+    @staticmethod
+    def get_signal_events_after_time(time: datetime.datetime.time):
+        signal_events = get_signal_events_after_time(time=time)
+        return SignalEvents(signal_events)
+
+    @property
+    def profit(self):
+        total = 0.0
+        before_sell = 0.0
+        is_holding = False
+        for i in range(len(self.signals)):
+            signal_event = self.signals[i]
+            if i == 0 and signal_event.side == constants.SELL:
+                continue
+            if signal_event.side == constants.BUY:
+                total -= signal_event.price * signal_event.units
+                is_holding = True
+            if signal_event.side == constants.SELL:
+                total += signal_event.price * signal_event.units
+                is_holding = False
+                before_sell = total
+        if is_holding:
+            return before_sell
+        return total
+
+    @property
+    def value(self):
+        signals = [s.value for s in self.signals]
+        if not signals:
+            signals = None
+
+        profit = self.profit
+        if not self.profit:
+            profit = None
+
+        return {'signals': signals, 'profit': profit}
+
 
 """ main """
-
-
-def index(request):
-    df = DataFrameCandle(set.product_code, set.trade_duration)
-    df.set_all_candles(set.past_period)
-    context = {
-        'candles': df.value['candles'],
-    }
-    return render(request, 'chart.html', context)
 
 
 def candle(request):
@@ -370,6 +483,10 @@ def candle(request):
                 period3 = 9
             df.add_macd(period1, period2, period3)
 
+        events = request.GET.get('events')
+        if events:
+            df.add_events(df.candles[0].time)
+
         return JsonResponse({
             'product_code': df.value['product_code'],
             'duration': df.value['duration'],
@@ -379,4 +496,5 @@ def candle(request):
             'bbands': df.value['bbands'],
             'rsi': df.value['rsi'],
             'macd': df.value['macd'],
+            'events': df.value['events'],
         })
