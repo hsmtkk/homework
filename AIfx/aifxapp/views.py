@@ -4,6 +4,7 @@ import datetime
 
 import numpy as np
 import talib
+from dict2obj import Dict2Obj
 
 from .models import UsdJpy1M, UsdJpy5M, UsdJpy15M, SignalEvent
 from django.shortcuts import render
@@ -55,7 +56,7 @@ def create_candle_with_duration(product_code, duration, ticker):
     return False
 
 
-"""indicator"""
+""" indicator """
 
 
 def nan_zero(values):
@@ -360,6 +361,210 @@ class DataFrameCandle(object):
             self.events = signal_events
             return True
         return False
+
+    """ test indicator """
+
+    def back_test_ema(self, period_1: int, period_2: int):
+        if len(self.candles) <= period_1 or len(self.candles) <= period_2:
+            return None
+
+        signal_events = SignalEvents()
+        ema_value_1 = talib.EMA(np.array(self.closes), period_1)
+        ema_value_2 = talib.EMA(np.array(self.closes), period_2)
+
+        for i in range(1, len(self.candles)):
+            if i < period_1 or i < period_2:
+                continue
+
+            if ema_value_1[i-1] < ema_value_2[i-1] and ema_value_1[i] >= ema_value_2[i]:
+                signal_events.buy(product_code=self.product_code, time=self.candles[i].time,
+                                  price=self.candles[i].close, units=1.0, save=False)
+            elif ema_value_1[i-1] > ema_value_2[i-1] and ema_value_1[i] <= ema_value_2[i]:
+                signal_events.sell(product_code=self.product_code, time=self.candles[i].time,
+                                   price=self.candles[i].close, units=1.0, save=False)
+
+        return signal_events
+
+    def optimize_ema(self):
+        performance = 0
+        best_period_1 = 7
+        best_period_2 = 14
+
+        for period_1 in range(4, 14):
+            for period_2 in range(7, 28):
+                signal_events = self.back_test_ema(period_1, period_2)
+                if signal_events is None:
+                    continue
+                profit = signal_events.profit
+                if performance < profit:
+                    performance = profit
+                    best_period_1 = period_1
+                    best_period_2 = period_2
+
+        return performance, best_period_1, best_period_2
+
+    def back_test_bb(self, n: int, k: float):
+        if len(self.candles) <= n:
+            return None
+
+        signal_events = SignalEvents()
+        up, _, down = talib.BBANDS(np.array(self.closes), n, k, k, 0)
+
+        for i in range(1, len(self.candles)):
+            if i < n:
+                continue
+
+            if down[i-1] > self.candles[i-1].close and down[i] <= self.candles[i].close:
+                signal_events.buy(product_code=self.product_code, time=self.candles[i].time,
+                                  price=self.candles[i].close, units=1.0, save=False)
+            elif up[i-1] > self.candles[i-1].close and up[i] <= self.candles[i].close:
+                signal_events.sell(product_code=self.product_code, time=self.candles[i].time,
+                                   price=self.candles[i].close, units=1.0, save=False)
+
+        return signal_events
+
+    def optimize_bb(self):
+        performance = 0
+        best_n = 20
+        best_k = 2.0
+
+        for n in range(10, 30):
+            for k in np.arange(1.5, 2.5, 0.1):
+                signal_events = self.back_test_bb(n, k)
+                if signal_events is None:
+                    continue
+                profit = signal_events.profit
+                if performance < profit:
+                    performance = profit
+                    best_n = n
+                    best_k = k
+
+        return performance, best_n, best_k
+
+    def back_test_rsi(self, period: int, buy_low: float, sell_high: float):
+        if len(self.candles) <= period:
+            return None
+
+        signal_events = SignalEvents()
+        values = talib.RSI(np.array(self.closes), period)
+
+        for i in range(1, len(self.candles)):
+            if values[i-1] == 0 or values[i-1] == 100:
+                continue
+
+            if values[i-1] < buy_low and values[i] >= buy_low:
+                signal_events.buy(product_code=self.product_code, time=self.candles[i].time,
+                                  price=self.candles[i].close, units=1.0, save=False)
+            elif values[i-1] > sell_high and values[i] <= sell_high:
+                signal_events.sell(product_code=self.product_code, time=self.candles[i].time,
+                                   price=self.candles[i].close, units=1.0, save=False)
+
+        return signal_events
+
+    def optimize_rsi(self):
+        performance = 0
+        best_period = 14
+        best_buy_low = 30.0
+        best_sell_high = 70.0
+
+        for period in range(7, 21):
+            for buy_low in np.arange(25.0, 35.0, 0.1):
+                for sell_high in np.arange(65.0, 75.0, 0.1):
+                    signal_events = self.back_test_rsi(period, buy_low, sell_high)
+                    if signal_events is None:
+                        continue
+                    profit = signal_events.profit
+                    if performance < profit:
+                        performance = profit
+                        best_period = period
+                        best_buy_low = buy_low
+                        best_sell_high = sell_high
+
+        return performance, best_period, best_buy_low, best_sell_high
+
+    def back_test_macd(self, period: int, period2: int, signal: int):
+        if len(self.candles) <= period or len(self.candles) <= period2 or len(self.candles) <= signal:
+            return None
+
+        signal_events = SignalEvents()
+        macd, macd_signal, _ = talib.MACD(np.array(self.closes), period2, period, signal)
+
+        for i in range(1, len(self.candles)):
+            if macd[i] < 0 and macd_signal[i] < 0 and macd[i-1] < macd_signal[i-1] and macd[i] >= macd_signal[i]:
+                signal_events.buy(product_code=self.product_code, time=self.candles[i].time,
+                                  price=self.candles[i].close, units=1.0, save=False)
+            elif macd[i] > 0 and macd_signal[i] > 0 and macd[i-1] > macd_signal[i-1] and macd[i] <= macd_signal[i]:
+                signal_events.sell(product_code=self.product_code, time=self.candles[i].time,
+                                   price=self.candles[i].close, units=1.0, save=False)
+
+        return signal_events
+
+    def optimize_macd(self):
+        performance = 0
+        best_period = 12
+        best_period_2 = 26
+        best_signal = 9
+
+        for period in range(6, 24):
+            for period_2 in range(13, 40):
+                for signal in range(4, 18):
+                    signal_events = self.back_test_macd(period, period_2, signal)
+                    if signal_events is None:
+                        continue
+                    profit = signal_events.profit
+                    if performance < profit:
+                        performance = profit
+                        best_period = period
+                        best_period_2 = period_2
+                        best_signal = signal
+
+        return performance, best_period, best_period_2, best_signal
+
+    """ indicator ranking """
+
+    def optimize_params(self):
+        ema_performance, ema_period_1, ema_period_2 = self.optimize_ema()
+        bb_performance, bb_n, bb_k = self.optimize_bb()
+        rsi_performance, rsi_period, rsi_buy_low, rsi_sell_high = self.optimize_rsi()
+        macd_performance, macd_period, macd_period_2, macd_signal = self.optimize_macd()
+
+        ema_ranking = Dict2Obj({'performance': ema_performance, 'enable': False})
+        bb_ranking = Dict2Obj({'performance': bb_performance, 'enable': False})
+        rsi_ranking = Dict2Obj({'performance': rsi_performance, 'enable': False})
+        macd_ranking = Dict2Obj({'performance': macd_performance, 'enable': False})
+
+        rankings = [ema_ranking, bb_ranking, rsi_ranking, macd_ranking]
+        rankings = sorted(rankings, key=lambda o: o.performance, reverse=True)
+
+        is_enable = False
+        for i, ranking in enumerate(rankings):
+            if i >= set.num_ranking:
+                break
+
+            if ranking.performance > 0:
+                ranking.enable = True
+                is_enable = True
+
+        if not is_enable:
+            return None
+
+        return Dict2Obj({
+            'ema_enable': ema_ranking.enable,
+            'ema_period_1': ema_period_1,
+            'ema_period_2': ema_period_2,
+            'bb_enable': bb_ranking.enable,
+            'bb_n': bb_n,
+            'bb_k': bb_k,
+            'rsi_enable': rsi_ranking.enable,
+            'rsi_period': rsi_period,
+            'rsi_buy_low': rsi_buy_low,
+            'rsi_sell_high': rsi_sell_high,
+            'macd_enable': macd_ranking.enable,
+            'macd_period': macd_period,
+            'macd_period_2': macd_period_2,
+            'macd_signal': macd_signal,
+        })
+
 
 
 """ main """
