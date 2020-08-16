@@ -153,7 +153,6 @@ class APIClient(object):
         except V20Error as e:
             logger.error(f'get_ticker_error:{e}')
             raise
-        print(res)
         timestamp = datetime.timestamp(
             dateutil.parser.parse(res['time'])
         )

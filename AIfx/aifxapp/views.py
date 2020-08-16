@@ -8,7 +8,6 @@ import talib
 from .models import UsdJpy1M, UsdJpy5M, UsdJpy15M, SignalEvent
 from django.shortcuts import render
 from django.http.response import JsonResponse
-from django.utils.timezone import utc
 
 import constants
 import set
@@ -356,8 +355,8 @@ class DataFrameCandle(object):
         return False
 
     def add_events(self, time):
-        signal_events = get_signal_events_after_time(time)
-        if len(signal_events) > 0:
+        signal_events = SignalEvents.get_signal_events_after_time(time)
+        if len(signal_events.signals) > 0:
             self.events = signal_events
             return True
         return False
