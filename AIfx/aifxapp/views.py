@@ -1,10 +1,15 @@
 import logging
 from threading import Thread
+from threading import Lock
 import datetime
+import time
+import sys
+import warnings
 
 import numpy as np
 import talib
 from dict2obj import Dict2Obj
+from functools import partial
 
 from .models import UsdJpy1M, UsdJpy5M, UsdJpy15M, SignalEvent
 from django.shortcuts import render
@@ -14,6 +19,7 @@ import constants
 import set
 from oanda.oanda import APIClient
 from oanda.oanda import Ticker
+from oanda.oanda import Order
 from utils.utils import Serializer
 
 api = APIClient(set.access_token, set.account_id)
@@ -222,22 +228,7 @@ class SignalEvents(object):
         return {'signals': signals, 'profit': profit}
 
 
-"""real time ticker"""
-
-
-class StreamData(object):
-
-    def stream_data(self):
-        api.get_realtime_ticker(callback=self.trade)
-
-    def trade(self, ticker: Ticker):
-        logger.info(f'trade ticker:{ticker.__dict__}')
-        for duration in constants.DURATIONS:
-            created = create_candle_with_duration(ticker.product_code, duration, ticker)
-            print(created)
-
-
-stream = StreamData()
+""" DateFrame """
 
 
 class DataFrameCandle(object):
@@ -566,11 +557,143 @@ class DataFrameCandle(object):
         })
 
 
+""" AI """
+
+
+def duration_seconds(duration: str) -> int:
+    if duration == constants.DURATION_1M:
+        return 60
+    elif duration == constants.DURATION_5M:
+        return 60 * 5
+    elif duration == constants.DURATION_15M:
+        return 60 * 15
+    else:
+        return 0
+
+
+class AI(object):
+    def __init__(self, product_code, use_percent, duration, past_period, stop_limit_percent, back_test):
+        self.API = APIClient(set.access_token, set.account_id)
+
+        if back_test:
+            self.signal_events = SignalEvents()
+        else:
+            self.signal_events = SignalEvents.get_signal_events_by_count(1)
+
+        self.product_code = product_code
+        self.use_percent = use_percent
+        self.duration = duration
+        self.past_period = past_period
+        self.optimized_trade_params = None
+        self.stop_limit = 0
+        self.stop_limit_percent = stop_limit_percent
+        self.back_test = back_test
+        self.start_trade = datetime.datetime.utcnow()
+        self.candle_cls = factory_candle_class(self.product_code, self.duration)
+        self.update_optimize_params(False)
+
+    def update_optimize_params(self, is_continue: bool):
+        logger.info('action=update_optimize_params status=run')
+        df = DataFrameCandle(self.product_code, self.duration)
+        df.set_all_candles(self.past_period)
+        if df.candles:
+            self.optimized_trade_params = df.optimize_params()
+        if self.optimized_trade_params is not None:
+            logger.info(f'action=update_optimize_params params={self.optimized_trade_params.__dict__}')
+
+        if is_continue and self.optimized_trade_params is None:
+            time.sleep(10 * duration_seconds(self.duration))
+            self.update_optimize_params(is_continue)
+
+    def buy(self, candle):
+        if self.back_test:
+            could_buy = self.signal_events.buy(self.product_code, candle.time, candle.close, 1.0, save=False)
+            return could_buy
+
+        if self.start_trade > candle.time:
+            logger.warning('action=buy status=old_time')
+            return False
+
+        if not self.signal_events.can_buy(candle.time):
+            logger.warning('action=buy status=previous_buy')
+            return False
+
+        balance = self.API.get_balance()
+        units = int(balance.available * self.use_percent)
+        order = Order(self.product_code, constants.BUY, units)
+        trade = self.API.send_order(order)
+        could_by = self.signal_events.buy(self.product_code, candle.time, trade.price, trade.units, save=True)
+        return could_by
+
+    def sell(self, candle):
+        if self.back_test:
+            could_sell = self.signal_events.sell(self.product_code, candle.time, candle.close, 1.0, save=False)
+            return could_sell
+
+        if self.start_trade > candle.time:
+            logger.warning('action=sell status=old_time')
+            return False
+
+        if not self.signal_events.can_sell(candle.time):
+            logger.warning('action=sell status=previous_sell')
+            return False
+
+        trades = self.API.get_open_trade()
+        sum_price = 0
+        units = 0
+        for trade in trades:
+            closed_trade = self.API.trade_close(trade.trade_id)
+            sum_price += closed_trade.price * abs(closed_trade.units)
+            units += abs(closed_trade.units)
+
+        could_sell = self.signal_events.sell(self.product_code, candle.time, sum_price/units, units, save=True)
+        return could_sell
+
+    def trade(self):
+        logger.info('action=trade status=run')
+
+
+"""real time ticker"""
+
+
+class StreamData(object):
+    def __init__(self):
+        self.ai = AI(
+            product_code=set.product_code,
+            use_percent=set.use_percent,
+            duration=set.trade_duration,
+            past_period=set.past_period,
+            stop_limit_percent=set.stop_limit_percent,
+            back_test=set.back_test
+        )
+        self.trade_lock = Lock()
+
+    def stream_data(self):
+        trade_with_ai = partial(self.trade, ai=self.ai)
+        self.ai.API.get_realtime_ticker(callback=trade_with_ai)
+
+    def trade(self, ticker: Ticker, ai: AI):
+        logger.info(f'trade ticker:{ticker.__dict__}')
+        for duration in constants.DURATIONS:
+            created = create_candle_with_duration(ticker.product_code, duration, ticker)
+            if created and duration == set.trade_duration:
+                thread = Thread(target=self._trade, args=(ai,))
+                thread.start()
+
+    def _trade(self, ai: AI):
+        with self.trade_lock:
+            ai.trade()
+
+
+stream = StreamData()
+
 
 """ main """
 
 
 def candle(request):
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    warnings.simplefilter('ignore')
     streamThread = Thread(target=stream.stream_data)
     streamThread.start()
     if request.method == 'GET':
