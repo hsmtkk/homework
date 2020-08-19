@@ -170,7 +170,7 @@ class SignalEvents(object):
         if save:
             signal_event.save()
 
-        self.signals.append(signal_event)
+            self.signals.append(signal_event)
         return True
 
     def sell(self, product_code, time, price, units, save):
@@ -182,7 +182,7 @@ class SignalEvents(object):
         if save:
             signal_event.save()
 
-        self.signals.append(signal_event)
+            self.signals.append(signal_event)
         return True
 
     @staticmethod
@@ -889,3 +889,6 @@ def candle(request):
             'macd': df.value['macd'],
             'events': df.value['events'],
         })
+
+        # delete_time = datetime.datetime.now(timezone.utc) - datetime.datetime.timedelta(minutes=100)
+        # UsdJpy1M.objects.filter(time=delete_time).delete()
