@@ -2,6 +2,7 @@ import logging
 from threading import Thread
 from threading import Lock
 import datetime
+from datetime import timezone
 import time
 import sys
 import warnings
@@ -120,10 +121,9 @@ class Macd(Serializer):
 
 
 def get_signal_events_by_count(count, product_code=set.product_code):
-    rows = SignalEvent.objects.filter(product_code=product_code == product_code).order_by('-time').limit(count).all()
+    rows = SignalEvent.objects.filter(product_code=product_code).order_by('-time')[:count].all()
     if rows is None:
         return []
-    rows.reverse()
     return rows
 
 
@@ -381,8 +381,8 @@ class DataFrameCandle(object):
         best_period_1 = 7
         best_period_2 = 14
 
-        for period_1 in range(4, 14):
-            for period_2 in range(7, 28):
+        for period_1 in range(5, 15):
+            for period_2 in range(12, 20):
                 signal_events = self.back_test_ema(period_1, period_2)
                 if signal_events is None:
                     continue
@@ -419,8 +419,8 @@ class DataFrameCandle(object):
         best_n = 20
         best_k = 2.0
 
-        for n in range(10, 30):
-            for k in np.arange(1.5, 2.5, 0.1):
+        for n in range(10, 20):
+            for k in np.arange(1.9, 2.1, 0.1):
                 signal_events = self.back_test_bb(n, k)
                 if signal_events is None:
                     continue
@@ -458,9 +458,9 @@ class DataFrameCandle(object):
         best_buy_low = 30.0
         best_sell_high = 70.0
 
-        for period in range(7, 21):
-            for buy_low in np.arange(25.0, 35.0, 0.1):
-                for sell_high in np.arange(65.0, 75.0, 0.1):
+        for period in range(10, 20):
+            for buy_low in np.arange(29.9, 30.1, 0.1):
+                for sell_high in np.arange(69.9, 70.1, 0.1):
                     signal_events = self.back_test_rsi(period, buy_low, sell_high)
                     if signal_events is None:
                         continue
@@ -496,9 +496,9 @@ class DataFrameCandle(object):
         best_period_2 = 26
         best_signal = 9
 
-        for period in range(6, 24):
-            for period_2 in range(13, 40):
-                for signal in range(4, 18):
+        for period in range(10, 19):
+            for period_2 in range(20, 30):
+                for signal in range(5, 15):
                     signal_events = self.back_test_macd(period, period_2, signal)
                     if signal_events is None:
                         continue
@@ -588,7 +588,7 @@ class AI(object):
         self.stop_limit = 0
         self.stop_limit_percent = stop_limit_percent
         self.back_test = back_test
-        self.start_trade = datetime.datetime.utcnow()
+        self.start_trade = datetime.datetime.now(timezone.utc)
         self.candle_cls = factory_candle_class(self.product_code, self.duration)
         self.update_optimize_params(False)
 
@@ -619,8 +619,8 @@ class AI(object):
             return False
 
         balance = self.API.get_balance()
-        units = int(balance.available * self.use_percent)
-        order = Order(self.product_code, constants.BUY, units)
+        units = int(balance.balance * self.use_percent)
+        order = Order(product_code=self.product_code, side=constants.BUY, units=units)
         trade = self.API.send_order(order)
         could_by = self.signal_events.buy(self.product_code, candle.time, trade.price, trade.units, save=True)
         return could_by
@@ -646,7 +646,7 @@ class AI(object):
             sum_price += closed_trade.price * abs(closed_trade.units)
             units += abs(closed_trade.units)
 
-        could_sell = self.signal_events.sell(self.product_code, candle.time, sum_price/units, units, save=True)
+        could_sell = self.signal_events.sell(self.product_code, candle.time, sum_price / units, units, save=True)
         return could_sell
 
     def trade(self):
@@ -678,25 +678,25 @@ class AI(object):
             if params.ema_enable and params.ema_period_1 <= i and params.ema_period_2 <= i:
                 if ema_values_1[i-1] < ema_values_2[i-1] and ema_values_1[i] >= ema_values_2[i]:
                     buy_point += 1
-                elif ema_values_1[i-1] > ema_values_2[i-1] and ema_values_1[i] <= ema_values_2[i]:
+                if ema_values_1[i-1] > ema_values_2[i-1] and ema_values_1[i] <= ema_values_2[i]:
                     sell_point += 1
 
             if params.bb_enable and params.bb_n <= i:
                 if bb_low[i-1] > df.candles[i-1].close and bb_low[i] <= df.candles[i].close:
                     buy_point += 1
-                elif bb_high[i-1] < df.candles[i-1].close and bb_high[i] >= df.candles[i].close:
+                if bb_high[i-1] < df.candles[i-1].close and bb_high[i] >= df.candles[i].close:
                     sell_point += 1
 
             if params.rsi_enable and rsi_values[i-1] != 0 and rsi_values[i-1] != 100:
                 if rsi_values[i-1] < params.rsi_buy_low and rsi_values[i] >= params.rsi_buy_low:
                     buy_point += 1
-                elif rsi_values[i-1] > params.rsi_sell_high and rsi_values[i] <= params.rsi_sell_high:
+                if rsi_values[i-1] > params.rsi_sell_high and rsi_values[i] <= params.rsi_sell_high:
                     sell_point += 1
 
             if params.macd_enable:
                 if macd[i] < 0 and macd_signal[i] < 0 and macd[i-1] < macd_signal[i-1] and macd[i] >= macd_signal[i]:
                     buy_point += 1
-                elif macd[i] > 0 and macd_signal[i] > 0 and macd[i-1] > macd_signal[i-1] and macd[i] <= macd_signal[i]:
+                if macd[i] > 0 and macd_signal[i] > 0 and macd[i-1] > macd_signal[i-1] and macd[i] <= macd_signal[i]:
                     sell_point += 1
 
             if buy_point > 0:

@@ -183,7 +183,7 @@ class APIClient(object):
         #     logger.error(e.msg)
         #     raise
 
-    def send_order(self, order: Order):
+    def send_order(self, order: Order) -> Trade:
         if order.side == constants.BUY:
             side = 1
         elif order.side == constants.SELL:
@@ -211,7 +211,7 @@ class APIClient(object):
 
         return self.trade_details(order.filling_transaction_id)
 
-    def wait_order_complete(self, order_id):
+    def wait_order_complete(self, order_id) -> Order:
         count = 0
         timeout_count = 5
         while True:
@@ -242,7 +242,7 @@ class APIClient(object):
         )
         return order
 
-    def trade_details(self, trade_id):
+    def trade_details(self, trade_id) -> Trade:
         r = trades.TradeDetails(self.account_id, trade_id)
         try:
             res = self.client.request(r)
@@ -259,7 +259,7 @@ class APIClient(object):
         )
         return trade
 
-    def get_open_trade(self):
+    def get_open_trade(self) -> list:
         r = trades.OpenTrades(self.account_id)
         try:
             res = self.client.request(r)
