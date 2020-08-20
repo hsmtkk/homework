@@ -5,7 +5,7 @@
         <title>Chart</title>
         <style>
             #dashboard_div{
-                width: 600px;
+                width: auto;
                 border: 1px solid #ccc;
             }
             #chart_div{
@@ -14,6 +14,10 @@
             }
             #filter_div{
                 height:50px;
+            }
+            .technical_title{
+                margin: 10px;
+                color: black;
             }
         </style>
 
@@ -25,7 +29,7 @@
             var config = {
                 api:{
                     enable: true,
-                    interval: 1000 * 3
+                    interval: 1000
                 },
                 candlestick:{
                     product_code: 'USD_JPY',
@@ -33,7 +37,70 @@
                     limit: 365,
                     numViews: 5,
                 },
+                dataTable: {
+                    index: 0,
+                    value: null
+                },
+                sma: {
+                    enable: false,
+                    indexes: [],
+                    periods: [],
+                    values: []
+                },
+                ema: {
+                    enable: false,
+                    indexes: [],
+                    periods: [],
+                    values: []
+                },
+                bbands: {
+                    enable: false,
+                    indexes: [],
+                    n: 20,
+                    k: 2,
+                    high: [],
+                    mid: [],
+                    low: []
+                },
+                events: {
+                    enable: false,
+                    indexes: [],
+                    values: [],
+                    first: null
+                },
+                rsi: {
+                    enable: false,
+                    indexes: {'high': 0, 'value': 0, 'low': 0},
+                    period: 14,
+                    high: 70,
+                    values: [],
+                    low: 30
+                },
+                macd: {
+                    enable: false,
+                    indexes: [],
+                    periods: [],
+                    values: []
+                },
             };
+
+            function initConfigValues(){
+                config.dataTable.index = 0;
+                config.sma.indexes = [];
+                config.sma.values = [];
+                config.ema.indexes = [];
+                config.ema.values = [];
+                config.bbands.indexes = [];
+                config.bbands.high = [];
+                config.bbands.mid = [];
+                config.bbands.low = [];
+                config.events.indexes = [];
+                config.events.values = [];
+                config.rsi.indexes = [];
+                config.macd.indexes = [];
+                config.macd.periods = [];
+                config.macd.values = [];
+            }
 
             function drawChart(dataTable) {
                 var chartDiv = document.getElementById('chart_div');
@@ -64,12 +131,109 @@
                         ]
 
                     }
-
                 });
                 charts.push(mainChart);
 
                 var options = mainChart.getOptions();
                 var view = mainChart.getView();
+
+                if (config.sma.enable == true){
+                    for (i = 0; i < config.sma.indexes.length; i++){
+                        options.series[config.sma.indexes[i]] = {type: 'line'};
+                        view.columns.push(config.candlestick.numViews + config.sma.indexes[i]);
+                    }
+                }
+
+                if (config.ema.enable == true){
+                    for (i = 0; i < config.ema.indexes.length; i++){
+                        options.series[config.ema.indexes[i]] = {type: 'line'};
+                        view.columns.push(config.candlestick.numViews + config.ema.indexes[i]);
+                    }
+                }
+
+                if (config.bbands.enable == true){
+                    for (i = 0; i < config.bbands.indexes.length; i++){
+                        options.series[config.bbands.indexes[i]] = {
+                            type: 'line',
+                            color: 'blue',
+                            lineWidth: 1
+                        };
+                        view.columns.push(config.candlestick.numViews + config.bbands.indexes[i]);
+                    }
+                }
+
+                if (config.events.enable == true && config.events.indexes.length > 0){
+                    options.series[config.events.indexes[0]] = {
+                        'type': 'line',
+                        tooltip: 'none',
+                        enableInteractivity: false,
+                        lineWidth: 0
+                    };
+                    view.columns.push(config.candlestick.numViews + config.events.indexes[0]);
+                    view.columns.push(config.candlestick.numViews + config.events.indexes[1]);
+                }
+
+                if (config.rsi.enable == true) {
+                    if ($('#rsi_div').length == 0) {
+                        $('#technical_div').append(
+                                "<div id='rsi_div' class='bottom_chart'>" +
+                                "<span class='technical_title'>RSI</span>" +
+                                "<div id='rsi_chart'></div>" +
+                                "</div>")
+                    }
+                    var high = config.candlestick.numViews + config.rsi.indexes['high'];
+                    var value = config.candlestick.numViews + config.rsi.indexes['value'];
+                    var low = config.candlestick.numViews + config.rsi.indexes['low'];
+                    var rsiChart = new google.visualization.ChartWrapper({
+                        'chartType': 'LineChart',
+                        'containerId': 'rsi_chart',
+                        'options': {
+                            'hAxis': {'slantedText': false},
+                            'legend': {'position': 'none'},
+                            'series': {
+                                0: {color: 'black', lineWidth: 1},
+                                1: {color: 'blue'},
+                                2: {color: 'black', lineWidth: 1}
+                            }
+                        },
+                        'view': {
+                            'columns': [ { 'type': 'string' }, high, value, low]
+                        }
+                    });
+                    charts.push(rsiChart)
+                }
+
+                if (config.macd.enable == true) {
+                    if (config.macd.indexes.length == 0) { return }
+                    if ($('#macd_div').length == 0) {
+                        $('#technical_div').append(
+                                "<div id='macd_div'>" +
+                                "<span class='technical_title'>MACD</span>" +
+                                "<div id='macd_chart'></div>" +
+                                "</div>")
+                    }
+                    var macdColumns = [{'type': 'string'}];
+
+                    macdColumns.push(config.candlestick.numViews + config.macd.indexes[2]);
+                    macdColumns.push(config.candlestick.numViews + config.macd.indexes[0]);
+                    macdColumns.push(config.candlestick.numViews + config.macd.indexes[1]);
+                    var macdChart = new google.visualization.ChartWrapper({
+                        'chartType': 'ComboChart',
+                        'containerId': 'macd_chart',
+                        'options': {
+                            legend: {'position': 'none'},
+                            seriesType: "bars",
+                            series: {
+                                1: {type: 'line', lineWidth: 1 },
+                                2: {type: 'line', lineWidth: 1}
+                            }
+                        },
+                        'view': {
+                            'columns': macdColumns
+                        }
+                    });
+                    charts.push(macdChart)
+                }
 
                 var controlWrapper = new google.visualization.ControlWrapper({
                     'controlType': 'ChartRangeFilter',
@@ -93,43 +257,250 @@
             function send () {
                 if (config.api.enable == false){
                     return
+                }
+                var params = {
+                    "product_code": config.candlestick.product_code,
+                    "limit": config.candlestick.limit,
+                    "duration": config.candlestick.duration,
                 };
-                $.ajax(
-                    {
-                        type: "GET",
-                        url: "/",
-                        data: {
-                            product_code: config.candlestick.product_code,
-                            limit: config.candlestick.limit,
-                            duration: config.candlestick.duration,
-                        },
-                        success: function(data){
-                            var dataTable = new google.visualization.DataTable();
-                            dataTable.addColumn('date', 'Date');
-                            dataTable.addColumn('number', 'Low');
-                            dataTable.addColumn('number', 'Open');
-                            dataTable.addColumn('number', 'Close');
-                            dataTable.addColumn('number', 'High');
-                            dataTable.addColumn('number', 'Volume');
+                if (config.sma.enable == true) {
+                    params["sma"] = true;
+                    params["smaPeriod1"] = config.sma.periods[0];
+                    params["smaPeriod2"] = config.sma.periods[1];
+                    params["smaPeriod3"] = config.sma.periods[2];
+                }
+                if (config.ema.enable == true) {
+                    params["ema"] = true;
+                    params["emaPeriod1"] = config.ema.periods[0];
+                    params["emaPeriod2"] = config.ema.periods[1];
+                    params["emaPeriod3"] = config.ema.periods[2];
+                }
+                if (config.bbands.enable == true) {
+                    params["bbands"] = true;
+                    params["bbandsN"] = config.bbands.n;
+                    params["bbandsK"] = config.bbands.k;
+                }
+                if (config.events.enable == true){
+                    params["events"] = true;
+                }
+                if (config.rsi.enable == true){
+                    params["rsi"] = true;
+                    params["rsiPeriod"] = config.rsi.period;
+                    params["rsiHigh"] = config.rsi.high;
+                    params["rsiLow"] = config.rsi.low;
+                }
 
-                            var googleChartData = [];
-                            var candles = data["candles"];
-
-                            for(var i=0; i < candles.length; i++){
-                                var candle = candles[i];
-                                var date = new Date(candle.time);
-                                var datas = [date, candle.low, candle.open,
-                                candle.close, candle.high, candle.volume];
-
-                            }   googleChartData.push(datas)
+                if (config.macd.enable == true) {
+                    params["macd"] = true;
+                    params["macdPeriod1"] = config.macd.periods[0];
+                    params["macdPeriod2"] = config.macd.periods[1];
+                    params["macdPeriod3"] = config.macd.periods[2];
+                }
 
 
-                            dataTable.addRows(googleChartData);
-                            drawChart(dataTable);
+                $.get("/", params).done(function (data) {
+                    initConfigValues();
+                    var dataTable = new google.visualization.DataTable();
+                    dataTable.addColumn('date', 'Date');
+                    dataTable.addColumn('number', 'Low');
+                    dataTable.addColumn('number', 'Open');
+                    dataTable.addColumn('number', 'Close');
+                    dataTable.addColumn('number', 'High');
+                    dataTable.addColumn('number', 'Volume');
+
+                    if (data["smas"] != undefined) {
+                        for (i = 0; i < data['smas'].length; i++){
+                            var smaData = data['smas'][i];
+                            if (smaData.length == 0){ continue; }
+                            config.dataTable.index += 1;
+                            config.sma.indexes[i] = config.dataTable.index;
+                            dataTable.addColumn('number', 'SMA' + smaData["period"].toString());
+                            config.sma.values[i] = smaData["values"]
                         }
                     }
-                )
-            };
+
+                    if (data["emas"] != undefined) {
+                        for (i = 0; i < data['emas'].length; i++){
+                            var emaData = data['emas'][i];
+                            if (emaData.length == 0){ continue; }
+                            config.dataTable.index += 1;
+                            config.ema.indexes[i] = config.dataTable.index;
+                            dataTable.addColumn('number', 'EMA' + emaData["period"].toString());
+                            config.ema.values[i] = emaData["values"]
+                        }
+                    }
+
+                    if (data['bbands'] != undefined){
+                        var n = data['bbands']['n'];
+                        var k = data['bbands']['k'];
+                        var high = data['bbands']['high'];
+                        var mid = data['bbands']['mid'];
+                        var low = data['bbands']['low'];
+                        config.dataTable.index += 1;
+                        config.bbands.indexes[0] = config.dataTable.index;
+                        config.dataTable.index += 1;
+                        config.bbands.indexes[1] = config.dataTable.index;
+                        config.dataTable.index += 1;
+                        config.bbands.indexes[2] = config.dataTable.index;
+                        dataTable.addColumn('number', 'BBands High(' + n + ', ' + k + ')');
+                        dataTable.addColumn('number', 'BBands Mid(' + n + ', ' + k + ')');
+                        dataTable.addColumn('number', 'BBands Low(' + n + ', ' + k + ')');
+                        config.bbands.high = high;
+                        config.bbands.mid = mid;
+                        config.bbands.low = low;
+                    }
+
+                    if (data['events'] != undefined) {
+                        config.dataTable.index += 1;
+                        config.events.indexes[0] = config.dataTable.index;
+                        config.dataTable.index += 1;
+                        config.events.indexes[1] = config.dataTable.index;
+
+                        config.events.values = data['events']['signals'];
+                        if (config.events.values != undefined) {
+                            config.events.first = config.events.values.shift();
+                        };
+
+                        dataTable.addColumn('number', 'Marker');
+                        dataTable.addColumn({type:'string', role:'annotation'});
+
+                        if (data['events']['profit'] != undefined) {
+                            profit = String(Math.round(data['events']['profit'] * 100) / 100);
+                            $('#profit').html("Change:" + profit);
+                        }
+                    }
+
+                    if (data['rsi'] != undefined ){
+                        config.dataTable.index += 1;
+                        config.rsi.indexes['high'] = config.dataTable.index;
+                        config.dataTable.index += 1;
+                        config.rsi.indexes['value'] = config.dataTable.index;
+                        config.dataTable.index += 1;
+                        config.rsi.indexes['low'] = config.dataTable.index;
+                        config.rsi.period = data['rsi']['period'];
+                        config.rsi.high = data['rsi']['high'];
+                        config.rsi.low = data['rsi']['low'];
+                        config.rsi.values = data['rsi']['values'];
+                        dataTable.addColumn('number', 'RSI(' + config.rsi.period + ')');
+                        dataTable.addColumn('number', 'RSI(' + config.rsi.high + ')');
+                        dataTable.addColumn('number', 'RSI(' + config.rsi.low + ')');
+                    }
+
+                    if (data['macd'] != undefined) {
+                        var macdData = data['macd'];
+                        var fast_period = macdData["fast_period"].toString();
+                        var slow_period = macdData["slow_period"].toString();
+                        var signal_period = macdData["signal_period"].toString();
+                        var macd = macdData["macd"];
+                        var macd_signal = macdData["macd_signal"];
+                        var macd_hist = macdData["macd_hist"];
+
+                        config.dataTable.index += 1;
+                        config.macd.indexes[0] = config.dataTable.index;
+                        config.dataTable.index += 1;
+                        config.macd.indexes[1] = config.dataTable.index;
+                        config.dataTable.index += 1;
+                        config.macd.indexes[2] = config.dataTable.index;
+                        var speriods = '(' + fast_period + ',' + slow_period + ',' + signal_period +')';
+                        dataTable.addColumn('number', 'MD' + speriods);
+                        dataTable.addColumn('number', 'MS' + speriods);
+                        dataTable.addColumn('number', 'HT' + speriods);
+                        config.macd.values[0] = macd;
+                        config.macd.values[1] = macd_signal;
+                        config.macd.values[2] = macd_hist;
+                        config.macd.periods[0] = fast_period;
+                        config.macd.periods[1] = slow_period;
+                        config.macd.periods[2] = signal_period;
+                    }
+
+                    var googleChartData = [];
+                    var candles = data["candles"];
+
+                    for(var i=0; i < candles.length; i++){
+                        var candle = candles[i];
+                        var date = new Date(candle.time);
+                        var datas = [date, candle.low, candle.open, candle.close, candle.high, candle.volume];
+
+                        if (data["smas"] != undefined) {
+                            for (j = 0; j < config.sma.values.length; j++) {
+                                if (config.sma.values[j][i] == 0) {
+                                    datas.push(null);
+                                } else {
+                                    datas.push(config.sma.values[j][i]);
+                                }
+                            }
+                        }
+
+                        if (data["emas"] != undefined) {
+                            for (j = 0; j < config.ema.values.length; j++) {
+                                if (config.ema.values[j][i] == 0) {
+                                    datas.push(null);
+                                } else {
+                                    datas.push(config.ema.values[j][i]);
+                                }
+                            }
+                        }
+
+                        if (data["bbands"] != undefined){
+                            if (config.bbands.high[i] == 0){
+                                datas.push(null);
+                            } else{
+                                datas.push(config.bbands.high[i]);
+                            }
+                            if (config.bbands.mid[i] == 0){
+                                datas.push(null);
+                            } else{
+                                datas.push(config.bbands.mid[i]);
+                            }
+                            if (config.bbands.low[i] == 0){
+                                datas.push(null);
+                            } else{
+                                datas.push(config.bbands.low[i]);
+                            }
+                        }
+
+                        if (data['events'] != undefined) {
+                            var event = config.events.first
+                            if (event == undefined) {
+                                datas.push(null);
+                                datas.push(null);
+                            }else if(event.time == candle.time) {
+                                datas.push(candle.high);
+                                datas.push(event.side);
+                                config.events.first = config.events.values.shift();
+                            }else{
+                                datas.push(null);
+                                datas.push(null);
+                            }
+                        }
+
+                        if (data["rsi"] != undefined){
+                            datas.push(config.rsi.high);
+                            if (config.rsi.values[i] == 0){
+                                datas.push(null);
+                            } else{
+                                datas.push(config.rsi.values[i]);
+                            }
+                            datas.push(config.rsi.low);
+                        }
+
+                        if (data["macd"] != undefined) {
+                            for (j = 0; j < config.macd.values.length; j++) {
+                                if (config.macd.values[j][i] == 0) {
+                                    datas.push(null);
+                                } else {
+                                    datas.push(config.macd.values[j][i]);
+                                }
+                            }
+                        }
+
+                        googleChartData.push(datas)
+                    }
+
+                    dataTable.addRows(googleChartData);
+                    drawChart(dataTable);
+                })
+            }
 
             function changeDuration(s){
                 config.candlestick.duration = s;
@@ -145,19 +516,171 @@
                 }).mouseleave(function() {
                     config.api.enable = true;
                 });
+
+                $('#inputSma').change(function(){
+                    if (this.checked === true){
+                        config.sma.enable = true;
+                    } else {
+                        config.sma.enable = false;
+                    }
+                    send();
+                });
+                $('#inputSmaPeriod1').change(function(){
+                    config.sma.periods[0] = this.value;
+                    send();
+                });
+                $('#inputSmaPeriod2').change(function(){
+                    config.sma.periods[1] = this.value;
+                    send();
+                });
+                $('#inputSmaPeriod3').change(function(){
+                    config.sma.periods[2] = this.value;
+                    send();
+                });
+
+                $('#inputEma').change(function(){
+                    if (this.checked === true){
+                        config.ema.enable = true;
+                    } else {
+                        config.ema.enable = false;
+                    }
+                    send();
+                });
+                $('#inputEmaPeriod1').change(function(){
+                    config.ema.periods[0] = this.value;
+                    send();
+                });
+                $('#inputEmaPeriod2').change(function(){
+                    config.ema.periods[1] = this.value;
+                    send();
+                });
+                $('#inputEmaPeriod3').change(function(){
+                    config.ema.periods[2] = this.value;
+                    send();
+                });
+
+                $('#inputBBands').change(function(){
+                    if (this.checked === true){
+                        config.bbands.enable = true;
+                    } else{
+                        config.bbands.enable = false;
+                    }
+                    send();
+                });
+                $('#inputBBandsN').change(function(){
+                    config.bbands.n = this.value;
+                    send();
+                });
+                $('#inputBBandsK').change(function(){
+                    config.bbands.k = this.value;
+                    send();
+                });
+
+                $('#inputRsi').change(function() {
+                    if (this.checked === true) {
+                        config.rsi.enable = true;
+                    } else {
+                        config.rsi.enable = false;
+                        $('#rsi_div').remove();
+                    }
+                    send();
+                });
+                $("#inputRsiPeriod").change(function() {
+                    config.rsi.period = this.value;
+                    send();
+                });
+                $("#inputRsiHigh").change(function() {
+                    config.rsi.high = this.value;
+                    send();
+                });
+                $("#inputRsiLow").change(function() {
+                    config.rsi.low = this.value;
+                    send();
+                });
+
+                $('#inputMacd').change(function() {
+                    if (this.checked === true) {
+                        config.macd.enable = true;
+                    } else {
+                        $('#macd_div').remove();
+                        config.macd.enable = false;
+                    }
+                    send();
+                });
+                $("#inputMacdPeriod1").change(function() {
+                    config.macd.periods[0] = this.value;
+                    send();
+                });
+                $("#inputMacdPeriod2").change(function() {
+                    config.macd.periods[1] = this.value;
+                    send();
+                });
+                $("#inputMacdPeriod3").change(function() {
+                    config.macd.periods[2] = this.value;
+                    send();
+                });
+
+                $('#inputEvents').change(function() {
+                    if (this.checked === true) {
+                        config.events.enable = true;
+                    } else {
+                        config.events.enable = false;
+                        $('#profit').html("");
+                    }
+                    send();
+                });
             }
         </script>
     </head>
     <body>
         <div>
-            <button onclick="changeDuration('5s');">5s</button>
             <button onclick="changeDuration('1m');">1m</button>
-            <button onclick="changeDuration('1h');">1h</button>
+            <button onclick="changeDuration('5m');">5m</button>
+            <button onclick="changeDuration('15m');">15m</button>
         </div>
 
         <div id="dashboard_div">
             <div id="chart_div"></div>
+            <div id="technical_div"></div>
             <div id="filter_div"></div>
+        </div>
+
+        <div>
+            SMA <input id="inputSma" type="checkbox">
+            Period <input id="inputSmaPeriod1" type="text" value="7" style="width: 15px;">
+            Period2 <input id="inputSmaPeriod2" type="text" value="14" style="width: 15px;">
+            Period3 <input id="inputSmaPeriod3" type="text" value="50" style="width: 15px;">
+        </div>
+
+        <div>
+            EMA <input id="inputEma" type="checkbox">
+            Period <input id="inputEmaPeriod1" type="text" value="7" style="width: 15px;">
+            Period2 <input id="inputEmaPeriod2" type="text" value="14" style="width: 15px;">
+            Period3 <input id="inputEmaPeriod3" type="text" value="50" style="width: 15px;">
+        </div>
+
+        <div>
+            BBands <input id="inputBBands" type="checkbox">
+            Period <input id="inputBBandsN" type="text" value="20" style="width: 15px;">
+            Sigma <input id="inputBBandsK" type="text" value="2" style="width: 15px;">
+        </div>
+
+        <div>
+            Rsi <input id="inputRsi" type="checkbox">
+            Period <input id="inputRsiPeriod" type="text" value="14" style="width: 15px;">
+            High <input id="inputRsiHigh" type="text" value="70" style="width: 15px;">
+            Low <input id="inputRsiLow" type="text" value="30" style="width: 15px;">
+        </div>
+
+        <div>
+            MACD <input id="inputMacd" type="checkbox">
+            Period <input id="inputMacdPeriod1" type="text" value="6" style="width: 15px;">
+            Period2 <input id="inputMacdPeriod2" type="text" value="19" style="width: 15px;">
+            Signal <input id="inputMacdPeriod3" type="text" value="9" style="width: 15px;">
+        </div>
+
+        <div>
+            Events <input id="inputEvents" type="checkbox"> <div id="profit"></div>
         </div>
     </body>
 </html>

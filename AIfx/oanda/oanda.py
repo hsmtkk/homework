@@ -10,7 +10,6 @@ from oandapyV20.endpoints import instruments
 from oandapyV20.endpoints import orders
 from oandapyV20.endpoints import trades
 from oandapyV20.endpoints.pricing import PricingInfo
-from oandapyV20.endpoints.pricing import PricingStream
 from oandapyV20.exceptions import V20Error
 
 import constants
@@ -22,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class Balance(object):
-    def __init__(self, balance, currency):
+    def __init__(self, currency, balance):
         self.balance = balance
         self.currency = currency
 
@@ -92,10 +91,10 @@ class Trade(object):
 
 
 class APIClient(object):
-    def __init__(self, access_token, account_id, environment='practice'):
+    def __init__(self, access_token=set.access_token, account_id=set.account_id, environment='practice'):
         self.access_token = access_token
         self.account_id = account_id
-        self.client = API(access_token=access_token, environment=environment)
+        self.client = API(access_token=access_token)
 
     def get_balance(self):
         r = accounts.AccountSummary(accountID=self.account_id)
@@ -107,7 +106,7 @@ class APIClient(object):
 
         balance = float(res['account']['balance'])
         currency = res['account']['currency']
-        return Balance(balance, currency)
+        return Balance(currency, balance)
 
     def get_ticker(self, product_code):
         params = {
@@ -145,26 +144,52 @@ class APIClient(object):
         return int(res['candles'][0]['volume'])
 
     def get_realtime_ticker(self, callback):
-        r = PricingStream(accountID=self.account_id, params={
-            'instruments': set.product_code,
-            })
+        params = {
+            'instruments': set.product_code
+        }
+        r = PricingInfo(accountID=self.account_id, params=params)
         try:
-            for res in self.client.request(r):
-                if res['type'] == 'PRICE':
-                    timestamp = datetime.timestamp(
-                        dateutil.parser.parse(res['time'])
-                    )
-                    instrument = res['instrument']
-                    bid = float(res['bids'][0]['price'])
-                    ask = float(res['asks'][0]['price'])
-                    volume = self.get_candle_volume()
-                    ticker = Ticker(instrument, timestamp, bid, ask, volume)
-                    callback(ticker)
+            res = self.client.request(r)
         except V20Error as e:
+<<<<<<< HEAD
             logger.error(f'get_realtime_ticker_error:{e}')
+            logger.error('HTTP response code ' + str(e.code))
+            logger.error('HTTP response body ' + e.msg)
+=======
+            logger.error(f'get_ticker_error:{e}')
+>>>>>>> b70fe02a484418ea34fde942b3cb672eb40d3238
             raise
+        timestamp = datetime.timestamp(
+            dateutil.parser.parse(res['time'])
+        )
+        price = res['prices'][0]
+        instrument = price['instrument']
+        bid = float(price['bids'][0]['price'])
+        ask = float(price['asks'][0]['price'])
+        volume = self.get_candle_volume()
+        ticker = Ticker(instrument, timestamp, bid, ask, volume)
+        callback(ticker)
+        # try:
+        #     for res in self.client.request(r):
+        #         print(res)
+        #         if res['type'] == 'PRICE':
+        #             timestamp = datetime.timestamp(
+        #                 dateutil.parser.parse(res['time'])
+        #             )
+        #             instrument = res['instrument']
+        #             bid = float(res['bids'][0]['price'])
+        #             ask = float(res['asks'][0]['price'])
+        #             volume = self.get_candle_volume()
+        #             ticker = Ticker(instrument, timestamp, bid, ask, volume)
+        #             callback(ticker)
+        #
+        # except V20Error as e:
+        #     logger.error(f'get_realtime_ticker_error:{e}')
+        #     logger.error(str(e.code))
+        #     logger.error(e.msg)
+        #     raise
 
-    def send_order(self, order: Order):
+    def send_order(self, order: Order) -> Trade:
         if order.side == constants.BUY:
             side = 1
         elif order.side == constants.SELL:
@@ -192,7 +217,7 @@ class APIClient(object):
 
         return self.trade_details(order.filling_transaction_id)
 
-    def wait_order_complete(self, order_id):
+    def wait_order_complete(self, order_id) -> Order:
         count = 0
         timeout_count = 5
         while True:
@@ -223,7 +248,7 @@ class APIClient(object):
         )
         return order
 
-    def trade_details(self, trade_id):
+    def trade_details(self, trade_id) -> Trade:
         r = trades.TradeDetails(self.account_id, trade_id)
         try:
             res = self.client.request(r)
@@ -240,7 +265,7 @@ class APIClient(object):
         )
         return trade
 
-    def get_open_trade(self):
+    def get_open_trade(self) -> list:
         r = trades.OpenTrades(self.account_id)
         try:
             res = self.client.request(r)
