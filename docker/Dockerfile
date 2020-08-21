@@ -23,7 +23,7 @@ COPY docker/entrypoint.sh /opt/entrypoint.sh
 
 RUN python -m pip install --upgrade pip
 
-RUN pip install django==3.1 omitempty==0.1.1 mysqlclient==2.0.1 numpy==1.19.1 python-dateutil==2.8.1 oandapyV20==0.6.3 requests==2.24.0
+RUN pip install dict2obj==1.2.0 django==3.1 omitempty==0.1.1 mysqlclient==2.0.1 numpy==1.19.1 python-dateutil==2.8.1 oandapyV20==0.6.3 requests==2.24.0
 
 # numpy is required to build TA-Lib
 RUN pip install TA-Lib==0.4.18
