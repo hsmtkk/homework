@@ -151,13 +151,7 @@ class APIClient(object):
         try:
             res = self.client.request(r)
         except V20Error as e:
-<<<<<<< HEAD
-            logger.error(f'get_realtime_ticker_error:{e}')
-            logger.error('HTTP response code ' + str(e.code))
-            logger.error('HTTP response body ' + e.msg)
-=======
             logger.error(f'get_ticker_error:{e}')
->>>>>>> b70fe02a484418ea34fde942b3cb672eb40d3238
             raise
         timestamp = datetime.timestamp(
             dateutil.parser.parse(res['time'])
