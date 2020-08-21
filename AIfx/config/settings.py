@@ -27,7 +27,7 @@ SECRET_KEY = '8e#dv%*y4(_1idt7%nk@!$v%wy1bq#%vljs(@ez%d(^&ig8_8('
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -79,7 +79,6 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'HOST': 'mysql',
         'NAME': set.db_name,
         'USER': set.db_user,
         'PASSWORD': set.db_pass,
