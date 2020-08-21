@@ -82,6 +82,8 @@ DATABASES = {
         'NAME': set.db_name,
         'USER': set.db_user,
         'PASSWORD': set.db_pass,
+        'HOST': 'mysql',
+        'PORT': 3306,
     }
 }
 
